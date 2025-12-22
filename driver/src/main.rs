@@ -80,7 +80,7 @@ fn main() -> Result<()> {
             }
         }
         Commands::Build { path, output } => {
-            let content = std::fs::read_to_string(&path)
+            let content = std::fs::read_to_string(path)
                 .with_context(|| format!("could not read file `{}`", path.display()))?;
 
             println!("--- Compiling: {} ---", path.display());
@@ -160,7 +160,7 @@ target = "wasm32-unknown-unknown"
             );
 
             // First, build the contract
-            let content = std::fs::read_to_string(&path)?;
+            let content = std::fs::read_to_string(path)?;
             match parse(&content) {
                 Ok(ast) => match swiftsc_frontend::analyze(&ast) {
                     Ok(_) => match swiftsc_backend::compile(&ast) {

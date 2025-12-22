@@ -8,6 +8,12 @@ pub struct CodeGenerator {
     function_map: std::collections::HashMap<String, u32>,
 }
 
+impl Default for CodeGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CodeGenerator {
     pub fn new() -> Self {
         let mut module = WasmModule::new();

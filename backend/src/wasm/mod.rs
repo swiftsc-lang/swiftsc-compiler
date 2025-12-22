@@ -13,6 +13,12 @@ pub struct WasmModule {
     num_imported_funcs: u32,
 }
 
+impl Default for WasmModule {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WasmModule {
     pub fn new() -> Self {
         WasmModule {
@@ -48,8 +54,7 @@ impl WasmModule {
     pub fn add_function(&mut self, type_index: u32) -> u32 {
         self.funcs.function(type_index);
         // Function indices start after imported functions
-        let func_idx = self.num_imported_funcs + (self.funcs.len() - 1);
-        func_idx
+        self.num_imported_funcs + (self.funcs.len() - 1)
     }
 
     pub fn add_code(&mut self, func_body: wasm_encoder::Function) {

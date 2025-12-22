@@ -18,6 +18,12 @@ pub struct Analyzer {
     symbol_table: SymbolTable,
 }
 
+impl Default for Analyzer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Analyzer {
     pub fn new() -> Self {
         let mut symbol_table = SymbolTable::new();
@@ -59,11 +65,11 @@ impl Analyzer {
                         Type::Path("function".into()), // Placeholder for function type
                         false,
                     )
-                    .map_err(|msg| SemanticError::AlreadyDefined(msg))?;
+                    .map_err(SemanticError::AlreadyDefined)?;
             } else if let ContractMember::Init(func) = member {
                 self.symbol_table
                     .define(func.name.clone(), Type::Path("function".into()), false)
-                    .map_err(|msg| SemanticError::AlreadyDefined(msg))?;
+                    .map_err(SemanticError::AlreadyDefined)?;
             }
         }
 
@@ -94,7 +100,7 @@ impl Analyzer {
                     Type::Path(c_name.clone()),
                     true, // self is mutable reference for now
                 )
-                .map_err(|msg| SemanticError::AlreadyDefined(msg))?;
+                .map_err(SemanticError::AlreadyDefined)?;
         }
 
         // Define params
@@ -105,7 +111,7 @@ impl Analyzer {
                     param.ty.clone(),
                     false, // params immutable by default
                 )
-                .map_err(|msg| SemanticError::AlreadyDefined(msg))?;
+                .map_err(SemanticError::AlreadyDefined)?;
         }
 
         self.check_block(&func.body)?;

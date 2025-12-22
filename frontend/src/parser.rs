@@ -105,10 +105,7 @@ where
             Some(Token::Struct) | Some(Token::Resource) | Some(Token::Enum) => {
                 // Parse Name { ... }
                 self.advance();
-                match self.advance() {
-                    Some(Token::Identifier(_)) => {}
-                    _ => {}
-                } // Name
+                if let Some(Token::Identifier(_)) = self.advance() {} // Name
                 if self.peek() == Some(&Token::LBrace) {
                     self.advance();
                     while self.peek() != Some(&Token::RBrace) && self.peek().is_some() {
@@ -171,11 +168,7 @@ where
                     // Parse params (same as function)
                     let mut params = Vec::new();
                     if self.peek() != Some(&Token::RParen) {
-                        loop {
-                            let name = match self.advance() {
-                                Some(Token::Identifier(s)) => s,
-                                _ => break,
-                            };
+                        while let Some(Token::Identifier(name)) = self.advance() {
                             self.expect(Token::Colon)?;
                             let ty = match self.advance() {
                                 Some(Token::Identifier(s)) => Type::Path(s),

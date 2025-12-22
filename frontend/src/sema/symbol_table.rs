@@ -12,6 +12,12 @@ pub struct SymbolTable {
     scopes: Vec<HashMap<String, Symbol>>,
 }
 
+impl Default for SymbolTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SymbolTable {
     pub fn new() -> Self {
         SymbolTable {
