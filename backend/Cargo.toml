@@ -1,0 +1,13 @@
+[package]
+name = "swiftsc-backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+swiftsc-frontend = { path = "../frontend" }
+wasm-encoder = "0.38" # Or latest stable
+anyhow = "1.0"
+thiserror = "1.0"
+
+[dev-dependencies]
+wasmtime = "16.0" # For testing execution
