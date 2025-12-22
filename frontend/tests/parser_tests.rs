@@ -36,9 +36,9 @@ fn test_precedence() {
         }
         match &**right {
             Expression::Binary {
-                left: l2,
+                left: _l2,
                 op: op2,
-                right: r2,
+                right: _r2,
             } => {
                 assert_eq!(*op2, BinaryOp::Mul); // Inner must be *
                                                  // 2 * 3

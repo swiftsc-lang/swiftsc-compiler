@@ -6,7 +6,6 @@ pub mod token;
 use ast::Program;
 use logos::Logos;
 use parser::Parser;
-use sema::analyzer;
 use token::Token;
 
 pub fn tokenize(input: &str) -> Vec<(Token, std::ops::Range<usize>)> {

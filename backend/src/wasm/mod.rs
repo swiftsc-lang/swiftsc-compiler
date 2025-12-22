@@ -34,7 +34,7 @@ impl WasmModule {
         R::IntoIter: ExactSizeIterator,
     {
         self.types.function(params, results);
-        (self.types.len() - 1)
+        self.types.len() - 1
     }
 
     pub fn import_function(&mut self, module: &str, name: &str, type_index: u32) -> u32 {
