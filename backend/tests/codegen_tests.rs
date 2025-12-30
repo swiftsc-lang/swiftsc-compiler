@@ -138,9 +138,7 @@ fn test_host_function_import() {
 
     let mut linker = Linker::new(&engine);
     linker
-        .func_wrap("env", "get_caller", || -> i64 {
-            0x1234567890ABCDEF_i64
-        })
+        .func_wrap("env", "get_caller", || -> i64 { 0x1234567890ABCDEF_i64 })
         .unwrap();
     linker
         .func_wrap("env", "get_value", || -> i64 { 0 })

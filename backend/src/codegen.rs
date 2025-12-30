@@ -296,7 +296,10 @@ impl CodeGenerator {
     ) {
         if let Some(locals) = self.scope_stack.pop() {
             for &idx in locals.iter().rev() {
-                if local_types.get(&idx).is_some_and(|ty| ty == &Type::Path("String".into())) {
+                if local_types
+                    .get(&idx)
+                    .is_some_and(|ty| ty == &Type::Path("String".into()))
+                {
                     body.instruction(&Instruction::LocalGet(idx));
                     body.instruction(&Instruction::Call(self.release_func));
                 }
@@ -320,7 +323,10 @@ impl CodeGenerator {
         for i in (target_depth..current_depth).rev() {
             if let Some(scope) = self.scope_stack.get(i) {
                 for &idx in scope.iter().rev() {
-                    if local_types.get(&idx).is_some_and(|ty| ty == &Type::Path("String".into())) {
+                    if local_types
+                        .get(&idx)
+                        .is_some_and(|ty| ty == &Type::Path("String".into()))
+                    {
                         body.instruction(&Instruction::LocalGet(idx));
                         body.instruction(&Instruction::Call(self.release_func));
                     }
@@ -336,7 +342,10 @@ impl CodeGenerator {
     ) {
         for scope in self.scope_stack.iter().rev() {
             for &idx in scope.iter().rev() {
-                if local_types.get(&idx).is_some_and(|ty| ty == &Type::Path("String".into())) {
+                if local_types
+                    .get(&idx)
+                    .is_some_and(|ty| ty == &Type::Path("String".into()))
+                {
                     body.instruction(&Instruction::LocalGet(idx));
                     body.instruction(&Instruction::Call(self.release_func));
                 }
@@ -713,8 +722,10 @@ impl CodeGenerator {
 
                     // Fallback for msg properties if called
                     if let Expression::Identifier(obj) = &**expr
-                        && obj == "msg" && field == "sender" {
-                            return Type::Path("u64".into());
+                        && obj == "msg"
+                        && field == "sender"
+                    {
+                        return Type::Path("u64".into());
                     }
                 }
                 Type::Path("u64".into()) // Default for calls
@@ -1670,7 +1681,9 @@ impl CodeGenerator {
                             s.clone()
                         } else if let Some(c) = &self.current_contract {
                             let mangled = format!("{}__impl__{}", c, s);
-                            if self.function_map.contains_key(&mangled) && locals.contains_key("self") {
+                            if self.function_map.contains_key(&mangled)
+                                && locals.contains_key("self")
+                            {
                                 is_indirect = false;
                                 final_args.insert(0, Expression::Identifier("self".to_string()));
                                 mangled
@@ -1684,26 +1697,26 @@ impl CodeGenerator {
                     Expression::FieldAccess { expr, field } => {
                         // Method call: obj.method()
                         if let Expression::Identifier(obj_name) = &**expr
-                            && obj_name == "msg" {
-                                match field.as_str() {
-                                    "sender" => {
-                                        let func_idx =
-                                            *self.function_map.get("get_caller").unwrap();
-                                        body.instruction(&Instruction::Call(func_idx));
-                                        return Ok(());
-                                    }
-                                    "value" => {
-                                        let func_idx = *self.function_map.get("get_value").unwrap();
-                                        body.instruction(&Instruction::Call(func_idx));
-                                        return Ok(());
-                                    }
-                                    "data" => {
-                                        let func_idx = *self.function_map.get("get_data").unwrap();
-                                        body.instruction(&Instruction::Call(func_idx));
-                                        return Ok(());
-                                    }
-                                    _ => {}
+                            && obj_name == "msg"
+                        {
+                            match field.as_str() {
+                                "sender" => {
+                                    let func_idx = *self.function_map.get("get_caller").unwrap();
+                                    body.instruction(&Instruction::Call(func_idx));
+                                    return Ok(());
                                 }
+                                "value" => {
+                                    let func_idx = *self.function_map.get("get_value").unwrap();
+                                    body.instruction(&Instruction::Call(func_idx));
+                                    return Ok(());
+                                }
+                                "data" => {
+                                    let func_idx = *self.function_map.get("get_data").unwrap();
+                                    body.instruction(&Instruction::Call(func_idx));
+                                    return Ok(());
+                                }
+                                _ => {}
+                            }
                         }
 
                         let obj_ty = self.infer_type(expr, locals, local_types);
@@ -1766,8 +1779,9 @@ impl CodeGenerator {
                         }
 
                         if let Type::Generic(base_name, type_args) = &obj_ty
-                            && self.generic_impls.contains_key(base_name) {
-                                self.instantiate_impl(base_name, type_args)?;
+                            && self.generic_impls.contains_key(base_name)
+                        {
+                            self.instantiate_impl(base_name, type_args)?;
                         }
                         let type_name = mangle_type(&obj_ty);
                         // Try naked impl first: TypeName__impl__MethodName
@@ -1926,70 +1940,71 @@ impl CodeGenerator {
                     && let Some(key) = self.storage_keys.get(field)
                 {
                     // Check if String
-                    let is_string = self.storage_types.get(field) == Some(&Type::Path("String".into()));
+                    let is_string =
+                        self.storage_types.get(field) == Some(&Type::Path("String".into()));
 
-                            if is_string {
-                                // Allocate String struct (32 bytes)
-                                body.instruction(&Instruction::I64Const(32));
-                                body.instruction(&Instruction::Call(self.malloc_func));
+                    if is_string {
+                        // Allocate String struct (32 bytes)
+                        body.instruction(&Instruction::I64Const(32));
+                        body.instruction(&Instruction::Call(self.malloc_func));
 
-                                let struct_ptr_local = self.scratch_base + self.scratch_depth;
-                                self.scratch_depth += 1;
-                                body.instruction(&Instruction::LocalSet(struct_ptr_local));
+                        let struct_ptr_local = self.scratch_base + self.scratch_depth;
+                        self.scratch_depth += 1;
+                        body.instruction(&Instruction::LocalSet(struct_ptr_local));
 
-                                let sr_idx = *self.function_map.get("storage_read").unwrap();
+                        let sr_idx = *self.function_map.get("storage_read").unwrap();
 
-                                // Read ptr (key) -> struct offset 0
-                                body.instruction(&Instruction::LocalGet(struct_ptr_local));
-                                body.instruction(&Instruction::I32WrapI64);
-                                body.instruction(&Instruction::I64Const(*key));
-                                body.instruction(&Instruction::Call(sr_idx));
-                                body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
-                                    offset: 0,
-                                    align: 3,
-                                    memory_index: 0,
-                                }));
+                        // Read ptr (key) -> struct offset 0
+                        body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                        body.instruction(&Instruction::I32WrapI64);
+                        body.instruction(&Instruction::I64Const(*key));
+                        body.instruction(&Instruction::Call(sr_idx));
+                        body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
+                            offset: 0,
+                            align: 3,
+                            memory_index: 0,
+                        }));
 
-                                // Read len (key + 1) -> struct offset 8
-                                body.instruction(&Instruction::LocalGet(struct_ptr_local));
-                                body.instruction(&Instruction::I32WrapI64);
-                                body.instruction(&Instruction::I64Const(key + 1));
-                                body.instruction(&Instruction::Call(sr_idx));
-                                body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
-                                    offset: 8,
-                                    align: 3,
-                                    memory_index: 0,
-                                }));
+                        // Read len (key + 1) -> struct offset 8
+                        body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                        body.instruction(&Instruction::I32WrapI64);
+                        body.instruction(&Instruction::I64Const(key + 1));
+                        body.instruction(&Instruction::Call(sr_idx));
+                        body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
+                            offset: 8,
+                            align: 3,
+                            memory_index: 0,
+                        }));
 
-                                // Read cap (key + 2) -> struct offset 16
-                                body.instruction(&Instruction::LocalGet(struct_ptr_local));
-                                body.instruction(&Instruction::I32WrapI64);
-                                body.instruction(&Instruction::I64Const(key + 2));
-                                body.instruction(&Instruction::Call(sr_idx));
-                                body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
-                                    offset: 16,
-                                    align: 3,
-                                    memory_index: 0,
-                                }));
+                        // Read cap (key + 2) -> struct offset 16
+                        body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                        body.instruction(&Instruction::I32WrapI64);
+                        body.instruction(&Instruction::I64Const(key + 2));
+                        body.instruction(&Instruction::Call(sr_idx));
+                        body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
+                            offset: 16,
+                            align: 3,
+                            memory_index: 0,
+                        }));
 
-                                // Init RC = 1
-                                body.instruction(&Instruction::LocalGet(struct_ptr_local));
-                                body.instruction(&Instruction::I32WrapI64);
-                                body.instruction(&Instruction::I64Const(1));
-                                body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
-                                    offset: 24,
-                                    align: 3,
-                                    memory_index: 0,
-                                }));
+                        // Init RC = 1
+                        body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                        body.instruction(&Instruction::I32WrapI64);
+                        body.instruction(&Instruction::I64Const(1));
+                        body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
+                            offset: 24,
+                            align: 3,
+                            memory_index: 0,
+                        }));
 
-                                // Return struct pointer
-                                body.instruction(&Instruction::LocalGet(struct_ptr_local));
-                                self.scratch_depth -= 1;
-                            } else {
-                                body.instruction(&Instruction::I64Const(*key));
-                                let sr_idx = *self.function_map.get("storage_read").unwrap();
-                                body.instruction(&Instruction::Call(sr_idx));
-                            }
+                        // Return struct pointer
+                        body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                        self.scratch_depth -= 1;
+                    } else {
+                        body.instruction(&Instruction::I64Const(*key));
+                        let sr_idx = *self.function_map.get("storage_read").unwrap();
+                        body.instruction(&Instruction::Call(sr_idx));
+                    }
                     return Ok(());
                 }
 
@@ -2114,7 +2129,9 @@ impl CodeGenerator {
 
                 // Check if tag == 0 (Ok)
                 body.instruction(&Instruction::I64Eqz);
-                body.instruction(&Instruction::If(wasm_encoder::BlockType::Result(ValType::I64)));
+                body.instruction(&Instruction::If(wasm_encoder::BlockType::Result(
+                    ValType::I64,
+                )));
 
                 // Ok branch: load data and push to stack
                 body.instruction(&Instruction::LocalGet(ptr_local));

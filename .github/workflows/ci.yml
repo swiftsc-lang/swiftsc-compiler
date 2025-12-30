@@ -1,4 +1,4 @@
-name: Compiler CI
+name: Rust CI
 
 on:
   push:
@@ -8,21 +8,52 @@ on:
 
 jobs:
   test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+    name: Build & Test
+    runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions-rs/toolchain@v1
+    - name: Checkout main repo
+      uses: actions/checkout@v3
+      with:
+        path: ${{ github.event.repository.name }}
+
+    - name: Checkout swiftsc-compiler (dependency)
+      if: github.event.repository.name != 'swiftsc-compiler'
+      uses: actions/checkout@v3
+      with:
+        repository: swiftsc-lang/swiftsc-compiler
+        path: swiftsc-compiler
+
+    - name: Checkout swiftsc-runtime (dependency)
+      if: github.event.repository.name != 'swiftsc-runtime'
+      uses: actions/checkout@v3
+      with:
+        repository: swiftsc-lang/swiftsc-runtime
+        path: swiftsc-runtime
+
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
         override: true
         components: clippy, rustfmt
+    
+    - name: Build
+      run: |
+        cd ${{ github.event.repository.name }}
+        cargo build --release
+      
     - name: Test
-      run: cargo test --all
+      run: |
+        cd ${{ github.event.repository.name }}
+        cargo test --all
+      
     - name: Clippy
-      run: cargo clippy -- -D warnings
+      run: |
+        cd ${{ github.event.repository.name }}
+        cargo clippy -- -D warnings
+      
     - name: Format Check
-      run: cargo fmt --check
+      run: |
+        cd ${{ github.event.repository.name }}
+        cargo fmt --check

@@ -13,7 +13,7 @@ pub fn compile(program: &Program) -> Result<Vec<u8>> {
 }
 #[cfg(test)]
 mod tests {
-    
+
     use wasmparser::{Parser, Payload};
 
     #[test]
