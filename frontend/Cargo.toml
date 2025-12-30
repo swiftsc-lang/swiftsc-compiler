@@ -2,6 +2,10 @@
 name = "swiftsc-frontend"
 version = "1.0.2-beta"
 edition = "2021"
+authors = ["SwiftSC-Lang Contributors"]
+description = "Frontend (lexing, parsing, AST) for the SwiftSC-Lang compiler"
+license = "MIT"
+repository = "https://github.com/swiftsc-lang/swiftsc-compiler"
 
 [dependencies]
 logos = "0.13"
