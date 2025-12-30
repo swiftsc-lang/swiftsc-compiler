@@ -3,11 +3,15 @@ use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 use swiftsc_frontend::{parse, tokenize};
 
+mod abi;
+
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
+    #[arg(short, long, global = true)]
+    root: Option<PathBuf>,
 }
 
 #[derive(Subcommand)]
@@ -39,6 +43,16 @@ enum Commands {
         path: PathBuf,
         #[arg(short, long)]
         network: String,
+    },
+    /// Simulate contract execution
+    Simulate {
+        path: PathBuf,
+        #[arg(short, long)]
+        func: String,
+        #[arg(short, long, value_delimiter = ',')]
+        args: Vec<i64>,
+        #[arg(long)]
+        solana: bool,
     },
 }
 
@@ -72,7 +86,7 @@ fn main() -> Result<()> {
                 .with_context(|| format!("could not read file `{}`", path.display()))?;
 
             match parse(&content) {
-                Ok(ast) => match swiftsc_frontend::analyze(&ast) {
+                Ok(ast) => match swiftsc_frontend::analyze(&ast, cli.root.clone()) {
                     Ok(_) => println!("Semantic Check Passed"),
                     Err(e) => eprintln!("Semantic Error: {}", e),
                 },
@@ -85,8 +99,8 @@ fn main() -> Result<()> {
 
             println!("--- Compiling: {} ---", path.display());
             match parse(&content) {
-                Ok(ast) => match swiftsc_frontend::analyze(&ast) {
-                    Ok(_) => match swiftsc_backend::compile(&ast) {
+                Ok(ast) => match swiftsc_frontend::analyze_and_link(&ast, cli.root.clone()) {
+                    Ok(linked_ast) => match swiftsc_backend::compile(&linked_ast) {
                         Ok(wasm_bytes) => {
                             let output_path = output
                                 .clone()
@@ -159,20 +173,115 @@ target = "wasm32-unknown-unknown"
                 network
             );
 
-            // First, build the contract
             let content = std::fs::read_to_string(path)?;
-            match parse(&content) {
-                Ok(ast) => match swiftsc_frontend::analyze(&ast) {
-                    Ok(_) => match swiftsc_backend::compile(&ast) {
-                        Ok(wasm_bytes) => {
-                            println!("✓ Contract compiled ({} bytes)", wasm_bytes.len());
-                            println!("  (Deployment to {} not yet implemented)", network);
-                        }
-                        Err(e) => eprintln!("✗ Compilation failed: {}", e),
-                    },
-                    Err(e) => eprintln!("✗ Semantic error: {}", e),
+            let ast = parse(&content).map_err(|e| anyhow::anyhow!("Parse error: {}", e))?;
+            let linked_ast = swiftsc_frontend::analyze_and_link(&ast, cli.root.clone())
+                .map_err(|e| anyhow::anyhow!("Semantic error: {}", e))?;
+            let wasm_bytes = swiftsc_backend::compile(&linked_ast)
+                .map_err(|e| anyhow::anyhow!("Codegen error: {}", e))?;
+
+            println!("✓ Contract compiled ({} bytes)", wasm_bytes.len());
+
+            // Generate ABI
+            let abis = abi::generate_abi(&linked_ast);
+            let abi_json = serde_json::to_string_pretty(&abis)?;
+
+            // Create build directory
+            let build_dir = std::env::current_dir()?.join("build");
+            std::fs::create_dir_all(&build_dir)?;
+
+            let stem = path.file_stem().unwrap().to_str().unwrap();
+            let wasm_path = build_dir.join(format!("{}.wasm", stem));
+            let abi_path = build_dir.join(format!("{}.abi.json", stem));
+
+            std::fs::write(&wasm_path, &wasm_bytes)?;
+            std::fs::write(&abi_path, &abi_json)?;
+
+            println!("✓ Artifacts saved to:");
+            println!("  - {}", wasm_path.display());
+            println!("  - {}", abi_path.display());
+
+            if network == "local" {
+                println!("✓ Mock deployment to local simulator successful");
+                println!("  Contract Address (Mock): 0x666f6f626172");
+            } else {
+                println!("  (Real deployment to {} not yet implemented)", network);
+            }
+        }
+        Commands::Simulate {
+            path,
+            func,
+            args,
+            solana,
+        } => {
+            let content = std::fs::read_to_string(path)?;
+            let ast = parse(&content).map_err(|e| anyhow::anyhow!("Parse error: {}", e))?;
+            let linked_ast = swiftsc_frontend::analyze_and_link(&ast, cli.root.clone())
+                .map_err(|e| anyhow::anyhow!("Semantic error: {}", e))?;
+            let wasm_bytes = swiftsc_backend::compile(&linked_ast)
+                .map_err(|e| anyhow::anyhow!("Codegen error: {}", e))?;
+
+            use swiftsc_runtime::{
+                BlockchainAdapter, ContractState, SimulatorAdapter, SolanaAccount, SolanaAdapter,
+                SolanaContext,
+            };
+
+            let state = ContractState {
+                storage: std::collections::HashMap::new(),
+                caller: 42,  // Mock caller address
+                value: 1000, // Mock value
+                data: 1234,  // Mock data/input
+                events: Vec::new(),
+                solana: if *solana {
+                    Some(SolanaContext {
+                        program_id: 111,
+                        accounts: vec![
+                            SolanaAccount {
+                                address: 222,
+                                owner: 111, // Owned by program
+                                is_writable: true,
+                                ..Default::default()
+                            },
+                            SolanaAccount {
+                                address: 333,
+                                owner: 444, // Not owned by program
+                                is_writable: false,
+                                ..Default::default()
+                            },
+                        ],
+                    })
+                } else {
+                    None
                 },
-                Err(e) => eprintln!("✗ Parse error: {}", e),
+            };
+
+            println!("--- Simulating: {} ---", path.display());
+            println!("Calling: {}({:?})", func, args);
+
+            if *solana {
+                let adapter = SolanaAdapter::new();
+                match adapter.execute(&wasm_bytes, func, args, state) {
+                    Ok((result, final_state)) => {
+                        println!("✓ Solana (Conceptual) simulation successful");
+                        println!("Result: {}", result);
+                        if !final_state.storage.is_empty() {
+                            println!("Final Storage: {:#?}", final_state.storage);
+                        }
+                    }
+                    Err(e) => eprintln!("✗ Solana (Conceptual) simulation failed: {}", e),
+                }
+            } else {
+                let adapter = SimulatorAdapter::new();
+                match adapter.execute(&wasm_bytes, func, args, state) {
+                    Ok((result, final_state)) => {
+                        println!("✓ Simulation successful");
+                        println!("Result: {}", result);
+                        if !final_state.storage.is_empty() {
+                            println!("Final Storage: {:#?}", final_state.storage);
+                        }
+                    }
+                    Err(e) => eprintln!("✗ Simulation failed: {}", e),
+                }
             }
         }
     }

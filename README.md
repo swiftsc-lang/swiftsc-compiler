@@ -1,44 +1,35 @@
-# SwiftSC-Lang Compiler
+# ⚙️ SwiftSC Compiler
 
-The official compiler for the SwiftSC-Lang smart contract language.
+![Version](https://img.shields.io/badge/version-1.0.2--beta-blue)
+![Build Status](https://github.com/swiftsc-lang/swiftsc-compiler/actions/workflows/ci.yml/badge.svg)
 
-> ⚠️ **v1.0 is an educational/prototype release** - See [LIMITATIONS.md](LIMITATIONS.md)
+The official compiler for the SwiftSC smart contract language, comprising the frontend, backend, and driver components.
 
-## Components
+## 🏗️ Components
 
-- **swiftsc-frontend** - Lexer, parser, semantic analyzer
-- **swiftsc-backend** - WASM code generator
-- **swiftsc-driver** - CLI tool
+- **swiftsc-frontend**: Lexer, parser, and semantic analyzer supporting modules.
+- **swiftsc-backend**: WASM code generator with ARC and gas metering.
+- **swiftsc-driver**: The unified CLI tool (`swiftsc`) for building and testing.
 
-## Installation
+## 🚀 Features
 
-```bash
-cargo install swiftsc-driver
-```
+- **Module Support**: Resolves and compiles multi-file projects.
+- **Error Handling**: Native support for `Result` and the `?` operator.
+- **Optimization**: Produces lean, efficient WebAssembly.
 
-## Usage
-
-```bash
-swiftsc build contract.stc
-swiftsc test
-```
-
-## Repository Structure
-
-This is part of the SwiftSC-Lang ecosystem:
-- [swiftsc-stdlib](https://github.com/swiftsc-lang/swiftsc-stdlib) - Standard library
-- [swiftsc-docs](https://github.com/swiftsc-lang/swiftsc-docs) - Documentation
-- [swiftsc-examples](https://github.com/swiftsc-lang/swiftsc-examples) - Examples
-
-## Development
+## 🛠️ Development
 
 ```bash
 git clone https://github.com/swiftsc-lang/swiftsc-compiler
 cd swiftsc-compiler
-cargo build
-cargo test
+cargo build --release
+cargo test --all
 ```
 
-## License
+## 🤝 Contributing
+
+Please see the [CONTRIBUTING.md](CONTRIBUTING.md) file in the root directory.
+
+## 📄 License
 
 MIT

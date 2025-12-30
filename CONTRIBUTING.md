@@ -1,69 +1,28 @@
 # Contributing to SwiftSC-Lang
 
-Thank you for your interest in contributing to SwiftSC-Lang!
+Thank you for your interest in contributing to the SwiftSC-Lang ecosystem! We are currently in **V1.0.2-beta**.
 
-## Getting Started
+## 🚀 Beta Phase Participation
 
-1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/swiftsc.git`
-3. Create a branch: `git checkout -b feature/your-feature`
-4. Make your changes
-5. Run tests: `cargo test`
-6. Commit: `git commit -m "feat: your feature"`
-7. Push: `git push origin feature/your-feature`
-8. Open a Pull Request
+As a beta project, we are primarily focused on:
+1.  **Bug Reports**: Identifying edge cases in the Module System and Error Handling.
+2.  **Documentation Improvements**: Clarifying language features.
+3.  **Examples**: Contributing new smart contract examples.
 
-## Development Setup
+## 🛠️ Development Workflow
 
-```bash
-# Install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+1.  **Fork the repository** and create your branch from `main`.
+2.  Follow the **Boilerplate Standardization**:
+    - Ensure your code adheres to standard Rust formatting (`cargo fmt`).
+    - Resolve all Clippy warnings (`cargo clippy`).
+3.  **Submit a Pull Request**: Provide a clear description of your changes.
 
-# Clone and build
-git clone https://github.com/swiftsc-lang/swiftsc.git
-cd swiftsc/swiftsc-compiler
-cargo build
-cargo test
-```
+## 🐛 Reporting Bugs
 
-## Commit Convention
+Please use the [Beta Bug Report Template](https://github.com/swiftsc-lang/swiftsc/issues/new) to report issues.
 
-We use [Conventional Commits](https://www.conventionalcommits.org/):
+## 📄 Code of Conduct
 
-- `feat:` New feature
-- `fix:` Bug fix
-- `docs:` Documentation changes
-- `test:` Test additions/changes
-- `refactor:` Code refactoring
-- `chore:` Build/tooling changes
+Help us keep the community welcoming and inclusive. Please follow our [Code of Conduct](CODE_OF_CONDUCT.md).
 
-## Pull Request Process
-
-1. Update documentation for any API changes
-2. Add tests for new functionality
-3. Ensure all tests pass
-4. Update CHANGELOG.md
-5. Request review from maintainers
-
-## Code Style
-
-- Run `cargo fmt` before committing
-- Run `cargo clippy` and fix warnings
-- Follow Rust naming conventions
-- Add doc comments for public APIs
-
-## Testing
-
-- Unit tests for individual functions
-- Integration tests for features
-- Add tests for bug fixes
-
-## Questions?
-
-- Open an issue for bugs
-- Start a discussion for questions
-- Join our Discord for chat
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the project's license.
+Happy Coding!

@@ -18,6 +18,7 @@ fn test_analyze_valid() {
         return_type: None,
         body: block,
         is_pub: false,
+        generics: vec![],
     };
     let prog = Program {
         items: vec![Item::Function(func)],
@@ -44,6 +45,7 @@ fn test_analyze_undefined() {
         return_type: None,
         body: block,
         is_pub: false,
+        generics: vec![],
     };
     let prog = Program {
         items: vec![Item::Function(func)],
@@ -72,6 +74,7 @@ fn test_analyze_type_mismatch() {
         return_type: None,
         body: block,
         is_pub: false,
+        generics: vec![],
     };
     let prog = Program {
         items: vec![Item::Function(func)],

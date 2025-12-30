@@ -33,6 +33,10 @@ pub enum Token {
     Struct,
     #[token("enum")]
     Enum,
+    #[token("trait")]
+    Trait,
+    #[token("impl")]
+    Impl,
     #[token("resource")]
     Resource,
     #[token("init")]
@@ -53,6 +57,8 @@ pub enum Token {
     Const,
     #[token("type")]
     Type,
+    #[token("as")]
+    As,
 
     #[token("true")]
     True,
@@ -104,6 +110,8 @@ pub enum Token {
     Comma,
     #[token(".")]
     Dot,
+    #[token("?")]
+    QuestionMark,
     #[token(";")]
     Semicolon,
     #[token(":")]
@@ -114,6 +122,10 @@ pub enum Token {
     Arrow,
     #[token("=>")]
     FatArrow,
+    #[token("..")]
+    Range,
+    #[token("..<")]
+    RangeExclusive,
 
     #[token("+")]
     Plus,
@@ -139,6 +151,8 @@ pub enum Token {
     LtEq,
     #[token(">=")]
     GtEq,
+    #[token("|")]
+    Pipe,
 
     #[token("+=")]
     PlusEq,

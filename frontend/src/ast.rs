@@ -7,10 +7,22 @@ pub struct Program {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Item {
+    Use(UseDeclaration),
     Contract(Contract),
     Function(Function),
-    Dummy, // For skipping unimplemented items in MVP
-           // Struct, Enum, etc. omitted for MVP
+    Struct(Struct),
+    Enum(Enum),
+    Trait(Trait),
+    Impl(Impl),
+    Resource(Struct), // Resources are structured like structs but with linear rules
+    Dummy,            // For skipping unimplemented items in MVP
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UseDeclaration {
+    pub path: Vec<String>,          // e.g., ["std", "collections", "Map"]
+    pub items: Option<Vec<String>>, // e.g., Some(["Map", "Vec"]) for use std::{Map, Vec}
+    pub alias: Option<String>,      // e.g., Some("M") for use std::Map as M
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -20,7 +32,46 @@ pub struct Contract {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Struct {
+    pub name: String,
+    pub fields: Vec<Field>,
+    pub generics: Vec<String>,
+    pub is_pub: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Enum {
+    pub name: String,
+    pub variants: Vec<String>,
+    pub is_pub: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Trait {
+    pub name: String,
+    pub methods: Vec<FunctionSignature>,
+    pub is_pub: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct FunctionSignature {
+    pub name: String,
+    pub params: Vec<Param>,
+    pub return_type: Option<Type>,
+    pub generics: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Impl {
+    pub trait_name: Option<String>, // Optional for 'impl Type' or mandatory for 'impl Trait for Type'
+    pub target_name: String,
+    pub methods: Vec<Function>,
+    pub generics: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub enum ContractMember {
+    Storage(Vec<Field>),
     Field(Field),
     Function(Function),
     Init(Function), // Constructor
@@ -39,6 +90,7 @@ pub struct Function {
     pub return_type: Option<Type>,
     pub body: Block,
     pub is_pub: bool,
+    pub generics: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -63,7 +115,23 @@ pub enum Statement {
     },
     Return(Option<Expression>),
     Expr(Expression),
-    // If, While, For, Emit omitted for MVP step 1
+    If {
+        condition: Expression,
+        then_branch: Block,
+        else_branch: Option<Block>,
+    },
+    While {
+        condition: Expression,
+        body: Block,
+    },
+    For {
+        var_name: String,
+        start: Expression,
+        end: Expression,
+        body: Block,
+    },
+    Break,
+    Continue,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -78,6 +146,7 @@ pub enum Expression {
     Call {
         func: Box<Expression>,
         args: Vec<Expression>,
+        type_args: Vec<Type>,
     },
     FieldAccess {
         expr: Box<Expression>,
@@ -87,7 +156,44 @@ pub enum Expression {
         expr: Box<Expression>,
         index: Box<Expression>,
     },
-    // StructInit etc.
+    StructInit {
+        name: String,
+        type_args: Vec<Type>,
+        fields: Vec<(String, Expression)>,
+    },
+    EnumVariant {
+        enum_name: String,
+        variant_name: String,
+    },
+    Match {
+        value: Box<Expression>,
+        arms: Vec<MatchArm>,
+    },
+    Closure {
+        params: Vec<Param>,
+        body: Box<Block>,
+    },
+    GenericInst {
+        target: Box<Expression>,
+        type_args: Vec<Type>,
+    },
+    Try(Box<Expression>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct MatchArm {
+    pub pattern: Pattern,
+    pub body: Expression,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum Pattern {
+    Literal(Literal),
+    EnumVariant {
+        enum_name: String,
+        variant_name: String,
+    },
+    Wildcard,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -103,6 +209,7 @@ pub enum BinaryOp {
     Gt,
     Le,
     Ge,
+    Assign,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -113,8 +220,10 @@ pub enum Literal {
     Unit,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Type {
-    Path(String), // e.g. "u64", "Address", "std::vec::Vec"
-                  // Array, Tuple, etc.
+    Path(String),               // e.g. "u64", "Address", "std::vec::Vec"
+    Generic(String, Vec<Type>), // e.g. "Vec<u64>"
+    Map(Box<Type>, Box<Type>),
+    // Array, Tuple, etc.
 }

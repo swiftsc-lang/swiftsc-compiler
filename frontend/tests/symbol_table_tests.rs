@@ -24,7 +24,11 @@ fn test_symbol_table_scope() {
         .define("x".to_string(), Type::Path("bool".into()), false)
         .unwrap();
     let sym = table.resolve("x").unwrap();
-    let Type::Path(p) = &sym.ty;
+    let p = if let Type::Path(p) = &sym.ty {
+        p
+    } else {
+        panic!("Expected Type::Path");
+    };
     assert_eq!(p, "bool");
 
     // Exit scope

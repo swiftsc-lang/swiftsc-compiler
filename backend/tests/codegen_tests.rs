@@ -2,25 +2,16 @@ use swiftsc_backend::compile;
 use swiftsc_frontend::{analyze, parse};
 use wasmtime::*;
 
-#[test]
-fn test_compile_and_run_arithmetic() {
-    let source = "contract Test {
-        fn add(a: u64, b: u64) -> u64 {
-            return a + b;
-        }
-    }";
-
-    let ast = parse(source).expect("Parse failed");
-    analyze(&ast).expect("Analysis failed");
-    let wasm_bytes = compile(&ast).expect("Compilation failed");
-
-    let engine = Engine::default();
-    let module = Module::new(&engine, &wasm_bytes).expect("Invalid WASM module");
-
-    // Provide host functions via linker
-    let mut linker = Linker::new(&engine);
+fn setup_linker(engine: &Engine) -> Linker<()> {
+    let mut linker = Linker::new(engine);
     linker
         .func_wrap("env", "get_caller", || -> i64 { 0 })
+        .unwrap();
+    linker
+        .func_wrap("env", "get_value", || -> i64 { 0 })
+        .unwrap();
+    linker
+        .func_wrap("env", "get_data", || -> i64 { 0 })
         .unwrap();
     linker
         .func_wrap("env", "storage_read", |_key: i64| -> i64 { 0 })
@@ -31,7 +22,28 @@ fn test_compile_and_run_arithmetic() {
     linker
         .func_wrap("env", "emit_event", |_event_id: i64, _data: i64| {})
         .unwrap();
+    linker
+        .func_wrap("env", "hash_i64", |_a: i64, _b: i64| -> i64 { 0 })
+        .unwrap();
+    linker
+}
 
+#[test]
+fn test_compile_and_run_arithmetic() {
+    let source = "contract Test {
+        pub fn add(a: u64, b: u64) -> u64 {
+            return a + b;
+        }
+    }";
+
+    let ast = parse(source).expect("Parse failed");
+    analyze(&ast, None).expect("Analysis failed");
+    let wasm_bytes = compile(&ast).expect("Compilation failed");
+
+    let engine = Engine::default();
+    let module = Module::new(&engine, &wasm_bytes).expect("Invalid WASM module");
+
+    let linker = setup_linker(&engine);
     let mut store = Store::new(&engine, ());
     let instance = linker
         .instantiate(&mut store, &module)
@@ -48,36 +60,23 @@ fn test_compile_and_run_arithmetic() {
 #[test]
 fn test_function_call() {
     let source = "contract Test {
-        fn double(x: u64) -> u64 {
+        pub fn double(x: u64) -> u64 {
             return x + x;
         }
         
-        fn quadruple(x: u64) -> u64 {
+        pub fn quadruple(x: u64) -> u64 {
             return double(double(x));
         }
     }";
 
     let ast = parse(source).expect("Parse failed");
-    analyze(&ast).expect("Analysis failed");
+    analyze(&ast, None).expect("Analysis failed");
     let wasm_bytes = compile(&ast).expect("Compilation failed");
 
     let engine = Engine::default();
     let module = Module::new(&engine, &wasm_bytes).expect("Invalid WASM module");
 
-    let mut linker = Linker::new(&engine);
-    linker
-        .func_wrap("env", "get_caller", || -> i64 { 0 })
-        .unwrap();
-    linker
-        .func_wrap("env", "storage_read", |_key: i64| -> i64 { 0 })
-        .unwrap();
-    linker
-        .func_wrap("env", "storage_write", |_key: i64, _value: i64| {})
-        .unwrap();
-    linker
-        .func_wrap("env", "emit_event", |_event_id: i64, _data: i64| {})
-        .unwrap();
-
+    let linker = setup_linker(&engine);
     let mut store = Store::new(&engine, ());
     let instance = linker
         .instantiate(&mut store, &module)
@@ -94,7 +93,7 @@ fn test_function_call() {
 #[test]
 fn test_let_binding() {
     let source = "contract Test {
-        fn compute(x: u64) -> u64 {
+        pub fn compute(x: u64) -> u64 {
             let y: u64 = x + 10;
             let z: u64 = y * 2;
             return z;
@@ -102,26 +101,13 @@ fn test_let_binding() {
     }";
 
     let ast = parse(source).expect("Parse failed");
-    analyze(&ast).expect("Analysis failed");
+    analyze(&ast, None).expect("Analysis failed");
     let wasm_bytes = compile(&ast).expect("Compilation failed");
 
     let engine = Engine::default();
     let module = Module::new(&engine, &wasm_bytes).expect("Invalid WASM module");
 
-    let mut linker = Linker::new(&engine);
-    linker
-        .func_wrap("env", "get_caller", || -> i64 { 0 })
-        .unwrap();
-    linker
-        .func_wrap("env", "storage_read", |_key: i64| -> i64 { 0 })
-        .unwrap();
-    linker
-        .func_wrap("env", "storage_write", |_key: i64, _value: i64| {})
-        .unwrap();
-    linker
-        .func_wrap("env", "emit_event", |_event_id: i64, _data: i64| {})
-        .unwrap();
-
+    let linker = setup_linker(&engine);
     let mut store = Store::new(&engine, ());
     let instance = linker
         .instantiate(&mut store, &module)
@@ -138,25 +124,29 @@ fn test_let_binding() {
 #[test]
 fn test_host_function_import() {
     let source = "contract Test {
-        fn get_sender() -> u64 {
+        pub fn get_sender() -> u64 {
             return msg.sender;
         }
     }";
 
     let ast = parse(source).expect("Parse failed");
-    analyze(&ast).expect("Analysis failed");
+    analyze(&ast, None).expect("Analysis failed");
     let wasm_bytes = compile(&ast).expect("Compilation failed");
 
-    // Verify WASM module structure
     let engine = Engine::default();
     let module = Module::new(&engine, &wasm_bytes).expect("Invalid WASM module");
 
-    // Create a mock get_caller host function
     let mut linker = Linker::new(&engine);
     linker
         .func_wrap("env", "get_caller", || -> i64 {
-            0x1234567890ABCDEF_i64 // Mock address
+            0x1234567890ABCDEF_i64
         })
+        .unwrap();
+    linker
+        .func_wrap("env", "get_value", || -> i64 { 0 })
+        .unwrap();
+    linker
+        .func_wrap("env", "get_data", || -> i64 { 0 })
         .unwrap();
     linker
         .func_wrap("env", "storage_read", |_key: i64| -> i64 { 0 })
@@ -166,6 +156,9 @@ fn test_host_function_import() {
         .unwrap();
     linker
         .func_wrap("env", "emit_event", |_event_id: i64, _data: i64| {})
+        .unwrap();
+    linker
+        .func_wrap("env", "hash_i64", |_a: i64, _b: i64| -> i64 { 0 })
         .unwrap();
 
     let mut store = Store::new(&engine, ());

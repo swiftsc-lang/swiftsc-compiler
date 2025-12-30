@@ -18,6 +18,11 @@ jobs:
     - uses: actions-rs/toolchain@v1
       with:
         toolchain: stable
-    - run: cargo test --all
-    - run: cargo clippy -- -D warnings
-    - run: cargo fmt --check
+        override: true
+        components: clippy, rustfmt
+    - name: Test
+      run: cargo test --all
+    - name: Clippy
+      run: cargo clippy -- -D warnings
+    - name: Format Check
+      run: cargo fmt --check

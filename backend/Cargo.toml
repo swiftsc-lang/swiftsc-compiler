@@ -1,6 +1,6 @@
 [package]
 name = "swiftsc-backend"
-version = "1.0.1"
+version = "1.0.2-beta"
 edition = "2024"
 
 [dependencies]
@@ -11,3 +11,4 @@ thiserror = "1.0"
 
 [dev-dependencies]
 wasmtime = "16.0" # For testing execution
+wasmparser = "0.118"

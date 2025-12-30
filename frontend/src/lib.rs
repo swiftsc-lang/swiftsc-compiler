@@ -1,4 +1,5 @@
 pub mod ast;
+pub mod module_resolver;
 pub mod parser;
 pub mod sema;
 pub mod token;
@@ -24,7 +25,27 @@ pub fn parse(input: &str) -> Result<Program, parser::ParseError> {
     let mut parser = Parser::new(iterator);
     parser.parse_program()
 }
-pub fn analyze(program: &ast::Program) -> Result<(), sema::analyzer::SemanticError> {
+pub fn analyze(
+    program: &ast::Program,
+    root: Option<std::path::PathBuf>,
+) -> Result<(), sema::analyzer::SemanticError> {
     let mut analyzer = sema::analyzer::Analyzer::new();
+    if let Some(r) = root {
+        analyzer = analyzer.with_root(r);
+    }
     analyzer.check_program(program)
+}
+
+pub fn analyze_and_link(
+    program: &ast::Program,
+    root: Option<std::path::PathBuf>,
+) -> Result<ast::Program, sema::analyzer::SemanticError> {
+    let mut analyzer = sema::analyzer::Analyzer::new();
+    if let Some(r) = root {
+        analyzer = analyzer.with_root(r);
+    }
+    analyzer.check_program(program)?;
+    Ok(ast::Program {
+        items: analyzer.get_linked_items(),
+    })
 }
