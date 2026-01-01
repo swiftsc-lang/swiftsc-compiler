@@ -1,6 +1,6 @@
 [package]
 name = "swiftsc-frontend"
-version = "1.0.2-beta"
+version = "1.0.3-beta"
 edition = "2021"
 authors = ["SwiftSC-Lang Contributors"]
 description = "Frontend (lexing, parsing, AST) for the SwiftSC-Lang compiler"
