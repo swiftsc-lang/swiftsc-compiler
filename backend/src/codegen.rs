@@ -33,6 +33,7 @@ pub struct CodeGenerator {
     release_func: u32,
     scope_stack: Vec<Vec<u32>>,
     current_contract: Option<String>,
+    gas_counter_global: u32,
 }
 
 struct FieldLayout {
@@ -105,6 +106,17 @@ impl CodeGenerator {
         );
         module.export_global("heap_ptr", heap_ptr_global);
 
+        // Add gas_counter global (mutable, initialized to 0)
+        let gas_init = ConstExpr::i64_const(0);
+        let gas_counter_global = module.add_global(
+            GlobalType {
+                val_type: ValType::I64,
+                mutable: true,
+            },
+            &gas_init,
+        );
+        module.export_global("gas_counter", gas_counter_global);
+
         // Create malloc function
         let malloc_func = Self::create_malloc_function(&mut module, heap_ptr_global)?;
 
@@ -151,6 +163,7 @@ impl CodeGenerator {
             release_func,
             scope_stack: Vec::new(),
             current_contract: None,
+            gas_counter_global,
         })
     }
 
@@ -525,6 +538,13 @@ impl CodeGenerator {
         self.compile_function_body(func, is_actual_method)
     }
 
+    fn emit_gas_increment(&self, body: &mut WasmFunction, amount: i64) {
+        body.instruction(&Instruction::GlobalGet(self.gas_counter_global));
+        body.instruction(&Instruction::I64Const(amount));
+        body.instruction(&Instruction::I64Add);
+        body.instruction(&Instruction::GlobalSet(self.gas_counter_global));
+    }
+
     fn register_function(&mut self, func: &Function, mangled_name: &str) -> u32 {
         let is_actual_method = mangled_name.contains("__impl__");
         let mut params: Vec<ValType> = func.params.iter().map(|_| ValType::I64).collect();
@@ -607,6 +627,9 @@ impl CodeGenerator {
             body.instruction(&Instruction::I64Const(0));
             body.instruction(&Instruction::LocalSet(func.params.len() as u32));
         }
+
+        // GAS INSTRUMENTATION: Function entry
+        self.emit_gas_increment(&mut body, 10);
 
         let num_stmts = func.body.stmts.len();
         for (i, stmt) in func.body.stmts.iter().enumerate() {
@@ -992,6 +1015,7 @@ impl CodeGenerator {
                 body.instruction(&Instruction::BrIf(1));
 
                 self.enter_scope();
+                self.emit_gas_increment(body, 5); // While loop iteration overhead
                 for stmt in &loop_body.stmts {
                     self.compile_stmt(stmt, body, locals, local_types, false, false)?;
                 }
@@ -1031,6 +1055,7 @@ impl CodeGenerator {
                 body.instruction(&Instruction::BrIf(1));
 
                 self.enter_scope();
+                self.emit_gas_increment(body, 5); // For loop iteration overhead
                 for stmt in &loop_body.stmts {
                     self.compile_stmt(stmt, body, locals, local_types, false, false)?;
                 }
@@ -1247,6 +1272,7 @@ impl CodeGenerator {
                                     body.instruction(&Instruction::I64Const(key));
                                     self.compile_expr(right, body, locals, local_types)?;
                                     let sw_idx = *self.function_map.get("storage_write").unwrap();
+                                    self.emit_gas_increment(body, 100); // Storage write cost
                                     body.instruction(&Instruction::Call(sw_idx));
                                 }
                             }
@@ -1273,6 +1299,7 @@ impl CodeGenerator {
                                     body.instruction(&Instruction::Call(self.retain_func));
 
                                     let sw_idx = *self.function_map.get("storage_write").unwrap();
+                                    self.emit_gas_increment(body, 100); // Storage write cost
 
                                     // Write ptr (offset 0) to key
                                     body.instruction(&Instruction::I64Const(key));
@@ -1914,6 +1941,7 @@ impl CodeGenerator {
                             available
                         )
                     })?;
+                    self.emit_gas_increment(body, 10); // Call overhead
                     body.instruction(&Instruction::Call(*func_idx));
                 }
             }
@@ -1939,6 +1967,7 @@ impl CodeGenerator {
                     && id == "self"
                     && let Some(key) = self.storage_keys.get(field)
                 {
+                    self.emit_gas_increment(body, 50); // Storage read cost
                     // Check if String
                     let is_string =
                         self.storage_types.get(field) == Some(&Type::Path("String".into()));
