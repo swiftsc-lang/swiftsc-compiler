@@ -2,41 +2,23 @@
 
 ## Supported Versions
 
+Currently, we support the latest beta release for security updates.
+
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
+| v1.0.3-beta  | :white_check_mark: |
+| < v1.0.3-beta   | :x:                |
 
 ## Reporting a Vulnerability
 
-**Please do not report security vulnerabilities through public GitHub issues.**
+We take the security of SwiftSC seriously. If you discover a security vulnerability, please do **NOT** open an issue.
 
-Instead, please report them via email to: security@swiftsc-lang.dev
+Instead, please send an email to **swiftsc-lang@proton.me**.
 
-You should receive a response within 48 hours. If the issue is confirmed, we will:
+### What to Include
 
-1. Acknowledge receipt
-2. Investigate and develop a fix
-3. Release a security patch
-4. Publicly disclose the vulnerability
+*   A description of the vulnerability.
+*   Steps to reproduce the issue.
+*   Potential impact.
 
-## Security Features
-
-SwiftSC-Lang includes:
-- Static security analysis
-- Integer overflow detection
-- Gas metering
-- Formal verification support
-
-## Best Practices
-
-When writing SwiftSC-Lang contracts:
-- Use checked arithmetic from `std::math`
-- Follow security guidelines in documentation
-- Run security analyzer before deployment
-- Test thoroughly
-
-## Disclosure Policy
-
-- Security issues fixed within 90 days
-- Public disclosure after patch release
-- Credit given to reporters (if desired)
+We will acknowledge your report within 48 hours and provide an estimated timeline for a fix.
