@@ -1,28 +1,30 @@
-# Contributing to SwiftSC-Lang
+# Contributing to SwiftSC (swiftsc-compiler)
 
-Thank you for your interest in contributing to the SwiftSC-Lang ecosystem! We are currently in **V1.0.2-beta**.
+Thank you for your interest in contributing to the SwiftSC ecosystem! We welcome contributions from developers of all skill levels.
 
-## 🚀 Beta Phase Participation
+## Code of Conduct
 
-As a beta project, we are primarily focused on:
-1.  **Bug Reports**: Identifying edge cases in the Module System and Error Handling.
-2.  **Documentation Improvements**: Clarifying language features.
-3.  **Examples**: Contributing new smart contract examples.
+Please note that this project is released with a Contributor Code of Conduct. By participating in this project you agree to abide by its terms.
 
-## 🛠️ Development Workflow
+## Compiler Development
+*   **Frontend**: Handling parsing and AST generation.
+*   **Backend**: WASM code generation and gas instrumentation.
+*   **Tests**: Add new syntax tests in `tests/compiler_tests.rs`.
 
-1.  **Fork the repository** and create your branch from `main`.
-2.  Follow the **Boilerplate Standardization**:
-    - Ensure your code adheres to standard Rust formatting (`cargo fmt`).
-    - Resolve all Clippy warnings (`cargo clippy`).
-3.  **Submit a Pull Request**: Provide a clear description of your changes.
+## How to Contribute
 
-## 🐛 Reporting Bugs
+1.  **Fork the repository** on GitHub.
+2.  **Clone your fork** locally.
+3.  **Create a new branch** for your feature or bugfix.
+4.  **Make your changes**, ensuring you follow the project's coding standards.
+5.  **Run tests** using `cargo test`.
+6.  **Submit a Pull Request** to the `main` branch.
 
-Please use the [Beta Bug Report Template](https://github.com/swiftsc-lang/swiftsc/issues/new) to report issues.
+## Coding Standards
 
-## 📄 Code of Conduct
+*   **Rust**: We use `rustfmt` and `clippy`. Please ensure your code passes `cargo fmt --check` and `cargo clippy`.
+*   **Commits**: Use conventional commits (e.g., `feat: add new parser`, `fix: resolve memory leak`).
 
-Help us keep the community welcoming and inclusive. Please follow our [Code of Conduct](CODE_OF_CONDUCT.md).
+## Reporting Bugs
 
-Happy Coding!
+Please use the [Bug Report Template](.github/ISSUE_TEMPLATE/beta_bug_report.md) when opening an issue.
