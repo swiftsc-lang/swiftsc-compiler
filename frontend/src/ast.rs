@@ -1,5 +1,21 @@
 // Abstract Syntax Tree Definitions
 
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub struct Span {
+    pub line: u32,
+    pub col: u32,
+}
+
+impl Span {
+    pub fn new(line: u32, col: u32) -> Self {
+        Self { line, col }
+    }
+
+    pub fn to_lsp_pos(&self) -> (u32, u32) {
+        (self.line.saturating_sub(1), self.col.saturating_sub(1))
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub items: Vec<Item>,
@@ -105,7 +121,13 @@ pub struct Block {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Statement {
+pub struct Statement {
+    pub kind: StatementKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum StatementKind {
     Let {
         name: String,
         destruct_names: Vec<String>,
@@ -135,7 +157,13 @@ pub enum Statement {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Expression {
+pub struct Expression {
+    pub kind: ExpressionKind,
+    pub span: Span,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum ExpressionKind {
     Literal(Literal),
     Identifier(String),
     Binary {

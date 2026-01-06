@@ -22,7 +22,7 @@ pub fn tokenize(input: &str) -> Vec<(Token, std::ops::Range<usize>)> {
 pub fn parse(input: &str) -> Result<Program, parser::ParseError> {
     let tokens = tokenize(input);
     let iterator = tokens.into_iter(); // Vec into iterator
-    let mut parser = Parser::new(iterator);
+    let mut parser = Parser::new(iterator, input.to_string());
     parser.parse_program()
 }
 pub fn analyze(

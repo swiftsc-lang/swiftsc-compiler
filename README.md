@@ -1,6 +1,6 @@
 # ⚙️ SwiftSC Compiler
 
-![Version](https://img.shields.io/badge/version-1.0.3--beta-blue)
+![Version](https://img.shields.io/badge/version-1.0.3-blue)
 ![Build Status](https://github.com/swiftsc-lang/swiftsc-compiler/actions/workflows/ci.yml/badge.svg)
 
 The official compiler for the SwiftSC smart contract language, comprising the frontend, backend, and driver components.

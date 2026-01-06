@@ -6,8 +6,8 @@ Currently, we support the latest beta release for security updates.
 
 | Version | Supported          |
 | ------- | ------------------ |
-| v1.0.3-beta  | :white_check_mark: |
-| < v1.0.3-beta   | :x:                |
+| v1.0.3  | :white_check_mark: |
+| < v1.0.3   | :x:                |
 
 ## Reporting a Vulnerability
 
