@@ -745,7 +745,9 @@ impl CodeGenerator {
 
                     // Fallback for msg properties if called
                     if let ExpressionKind::Identifier(obj_id) = &obj.kind
-                        && obj_id == "msg" && field == "sender" {
+                        && obj_id == "msg"
+                        && field == "sender"
+                    {
                         return Type::Path("u64".into());
                     }
                 }
@@ -1283,105 +1285,86 @@ impl CodeGenerator {
                         ExpressionKind::FieldAccess { expr: obj, field } => {
                             if let ExpressionKind::Identifier(obj_name) = &obj.kind
                                 && obj_name == "self"
-                                && let Some(key) = self.storage_keys.get(field).copied() {
-                                        // Check if String
-                                        let is_string = self.storage_types.get(field)
-                                            == Some(&Type::Path("String".into()));
+                                && let Some(key) = self.storage_keys.get(field).copied()
+                            {
+                                // Check if String
+                                let is_string = self.storage_types.get(field)
+                                    == Some(&Type::Path("String".into()));
 
-                                        if is_string {
-                                            self.compile_expr(right, body, locals, local_types)?;
+                                if is_string {
+                                    self.compile_expr(right, body, locals, local_types)?;
 
-                                            // String struct ptr is on stack
-                                            let struct_ptr_local =
-                                                self.scratch_base + self.scratch_depth;
-                                            self.scratch_depth += 1;
-                                            body.instruction(&Instruction::LocalSet(
-                                                struct_ptr_local,
-                                            ));
+                                    // String struct ptr is on stack
+                                    let struct_ptr_local = self.scratch_base + self.scratch_depth;
+                                    self.scratch_depth += 1;
+                                    body.instruction(&Instruction::LocalSet(struct_ptr_local));
 
-                                            // ARC: Retain storage value
-                                            body.instruction(&Instruction::LocalGet(
-                                                struct_ptr_local,
-                                            ));
-                                            body.instruction(&Instruction::Call(self.retain_func));
+                                    // ARC: Retain storage value
+                                    body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                                    body.instruction(&Instruction::Call(self.retain_func));
 
-                                            let sw_idx =
-                                                *self.function_map.get("storage_write").unwrap();
-                                            self.emit_gas_increment(body, 100); // Storage write cost
+                                    let sw_idx = *self.function_map.get("storage_write").unwrap();
+                                    self.emit_gas_increment(body, 100); // Storage write cost
 
-                                            // Write ptr (offset 0) to key
-                                            body.instruction(&Instruction::I64Const(key));
-                                            body.instruction(&Instruction::LocalGet(
-                                                struct_ptr_local,
-                                            ));
-                                            body.instruction(&Instruction::I32WrapI64);
-                                            body.instruction(&Instruction::I64Load(
-                                                wasm_encoder::MemArg {
-                                                    offset: 0,
-                                                    align: 3,
-                                                    memory_index: 0,
-                                                },
-                                            ));
-                                            body.instruction(&Instruction::Call(sw_idx));
+                                    // Write ptr (offset 0) to key
+                                    body.instruction(&Instruction::I64Const(key));
+                                    body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                                    body.instruction(&Instruction::I32WrapI64);
+                                    body.instruction(&Instruction::I64Load(wasm_encoder::MemArg {
+                                        offset: 0,
+                                        align: 3,
+                                        memory_index: 0,
+                                    }));
+                                    body.instruction(&Instruction::Call(sw_idx));
 
-                                            // Write len (offset 8) to key + 1
-                                            body.instruction(&Instruction::I64Const(key + 1));
-                                            body.instruction(&Instruction::LocalGet(
-                                                struct_ptr_local,
-                                            ));
-                                            body.instruction(&Instruction::I32WrapI64);
-                                            body.instruction(&Instruction::I64Load(
-                                                wasm_encoder::MemArg {
-                                                    offset: 8,
-                                                    align: 3,
-                                                    memory_index: 0,
-                                                },
-                                            ));
-                                            body.instruction(&Instruction::Call(sw_idx));
+                                    // Write len (offset 8) to key + 1
+                                    body.instruction(&Instruction::I64Const(key + 1));
+                                    body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                                    body.instruction(&Instruction::I32WrapI64);
+                                    body.instruction(&Instruction::I64Load(wasm_encoder::MemArg {
+                                        offset: 8,
+                                        align: 3,
+                                        memory_index: 0,
+                                    }));
+                                    body.instruction(&Instruction::Call(sw_idx));
 
-                                            // Write capacity (offset 16) to key + 2
-                                            body.instruction(&Instruction::I64Const(key + 2));
-                                            body.instruction(&Instruction::LocalGet(
-                                                struct_ptr_local,
-                                            ));
-                                            body.instruction(&Instruction::I32WrapI64);
-                                            body.instruction(&Instruction::I64Load(
-                                                wasm_encoder::MemArg {
-                                                    offset: 16,
-                                                    align: 3,
-                                                    memory_index: 0,
-                                                },
-                                            ));
-                                            body.instruction(&Instruction::Call(sw_idx));
+                                    // Write capacity (offset 16) to key + 2
+                                    body.instruction(&Instruction::I64Const(key + 2));
+                                    body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                                    body.instruction(&Instruction::I32WrapI64);
+                                    body.instruction(&Instruction::I64Load(wasm_encoder::MemArg {
+                                        offset: 16,
+                                        align: 3,
+                                        memory_index: 0,
+                                    }));
+                                    body.instruction(&Instruction::Call(sw_idx));
 
-                                            self.scratch_depth -= 1;
-                                        } else {
-                                            body.instruction(&Instruction::I64Const(key));
-                                            self.compile_expr(right, body, locals, local_types)?;
-                                            let sw_idx =
-                                                *self.function_map.get("storage_write").unwrap();
-                                            body.instruction(&Instruction::Call(sw_idx));
-                                        }
+                                    self.scratch_depth -= 1;
+                                } else {
+                                    body.instruction(&Instruction::I64Const(key));
+                                    self.compile_expr(right, body, locals, local_types)?;
+                                    let sw_idx = *self.function_map.get("storage_write").unwrap();
+                                    body.instruction(&Instruction::Call(sw_idx));
                                 }
+                            }
                         }
                         ExpressionKind::Index { expr: obj, index } => {
                             // Map entry assignment: self.balances[to] = value
                             if let ExpressionKind::FieldAccess { expr: base, field } = &obj.kind
                                 && let ExpressionKind::Identifier(base_name) = &base.kind
                                 && base_name == "self"
-                                && let Some(field_key) = self.storage_keys.get(field) {
-                                            // Key = hash(field_key, index_value)
-                                            body.instruction(&Instruction::I64Const(*field_key));
-                                            self.compile_expr(index, body, locals, local_types)?;
-                                            let h64_idx =
-                                                *self.function_map.get("hash_i64").unwrap();
-                                            body.instruction(&Instruction::Call(h64_idx));
+                                && let Some(field_key) = self.storage_keys.get(field)
+                            {
+                                // Key = hash(field_key, index_value)
+                                body.instruction(&Instruction::I64Const(*field_key));
+                                self.compile_expr(index, body, locals, local_types)?;
+                                let h64_idx = *self.function_map.get("hash_i64").unwrap();
+                                body.instruction(&Instruction::Call(h64_idx));
 
-                                            self.compile_expr(right, body, locals, local_types)?;
-                                            let sw_idx =
-                                                *self.function_map.get("storage_write").unwrap();
-                                            body.instruction(&Instruction::Call(sw_idx));
-                                }
+                                self.compile_expr(right, body, locals, local_types)?;
+                                let sw_idx = *self.function_map.get("storage_write").unwrap();
+                                body.instruction(&Instruction::Call(sw_idx));
+                            }
                         }
                         _ => {}
                     }
@@ -1752,11 +1735,11 @@ impl CodeGenerator {
                     ExpressionKind::FieldAccess { expr, field } => {
                         // Method call: obj.method()
                         if let ExpressionKind::Identifier(obj_name) = &expr.kind
-                            && obj_name == "msg" {
+                            && obj_name == "msg"
+                        {
                             match field.as_str() {
                                 "sender" => {
-                                    let func_idx =
-                                        *self.function_map.get("get_caller").unwrap();
+                                    let func_idx = *self.function_map.get("get_caller").unwrap();
                                     body.instruction(&Instruction::Call(func_idx));
                                     return Ok(());
                                 }
@@ -1995,76 +1978,77 @@ impl CodeGenerator {
                 // If expr is self.field, it's a storage read
                 if let ExpressionKind::Identifier(id) = &expr.kind
                     && id == "self"
-                    && let Some(key) = self.storage_keys.get(field) {
-                            self.emit_gas_increment(body, 50); // Storage read cost
-                            // Check if String
-                            let is_string =
-                                self.storage_types.get(field) == Some(&Type::Path("String".into()));
+                    && let Some(key) = self.storage_keys.get(field)
+                {
+                    self.emit_gas_increment(body, 50); // Storage read cost
+                    // Check if String
+                    let is_string =
+                        self.storage_types.get(field) == Some(&Type::Path("String".into()));
 
-                            if is_string {
-                                // Allocate String struct (32 bytes)
-                                body.instruction(&Instruction::I64Const(32));
-                                body.instruction(&Instruction::Call(self.malloc_func));
+                    if is_string {
+                        // Allocate String struct (32 bytes)
+                        body.instruction(&Instruction::I64Const(32));
+                        body.instruction(&Instruction::Call(self.malloc_func));
 
-                                let struct_ptr_local = self.scratch_base + self.scratch_depth;
-                                self.scratch_depth += 1;
-                                body.instruction(&Instruction::LocalSet(struct_ptr_local));
+                        let struct_ptr_local = self.scratch_base + self.scratch_depth;
+                        self.scratch_depth += 1;
+                        body.instruction(&Instruction::LocalSet(struct_ptr_local));
 
-                                let sr_idx = *self.function_map.get("storage_read").unwrap();
+                        let sr_idx = *self.function_map.get("storage_read").unwrap();
 
-                                // Read ptr (key) -> struct offset 0
-                                body.instruction(&Instruction::LocalGet(struct_ptr_local));
-                                body.instruction(&Instruction::I32WrapI64);
-                                body.instruction(&Instruction::I64Const(*key));
-                                body.instruction(&Instruction::Call(sr_idx));
-                                body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
-                                    offset: 0,
-                                    align: 3,
-                                    memory_index: 0,
-                                }));
+                        // Read ptr (key) -> struct offset 0
+                        body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                        body.instruction(&Instruction::I32WrapI64);
+                        body.instruction(&Instruction::I64Const(*key));
+                        body.instruction(&Instruction::Call(sr_idx));
+                        body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
+                            offset: 0,
+                            align: 3,
+                            memory_index: 0,
+                        }));
 
-                                // Read len (key + 1) -> struct offset 8
-                                body.instruction(&Instruction::LocalGet(struct_ptr_local));
-                                body.instruction(&Instruction::I32WrapI64);
-                                body.instruction(&Instruction::I64Const(key + 1));
-                                body.instruction(&Instruction::Call(sr_idx));
-                                body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
-                                    offset: 8,
-                                    align: 3,
-                                    memory_index: 0,
-                                }));
+                        // Read len (key + 1) -> struct offset 8
+                        body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                        body.instruction(&Instruction::I32WrapI64);
+                        body.instruction(&Instruction::I64Const(key + 1));
+                        body.instruction(&Instruction::Call(sr_idx));
+                        body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
+                            offset: 8,
+                            align: 3,
+                            memory_index: 0,
+                        }));
 
-                                // Read cap (key + 2) -> struct offset 16
-                                body.instruction(&Instruction::LocalGet(struct_ptr_local));
-                                body.instruction(&Instruction::I32WrapI64);
-                                body.instruction(&Instruction::I64Const(key + 2));
-                                body.instruction(&Instruction::Call(sr_idx));
-                                body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
-                                    offset: 16,
-                                    align: 3,
-                                    memory_index: 0,
-                                }));
+                        // Read cap (key + 2) -> struct offset 16
+                        body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                        body.instruction(&Instruction::I32WrapI64);
+                        body.instruction(&Instruction::I64Const(key + 2));
+                        body.instruction(&Instruction::Call(sr_idx));
+                        body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
+                            offset: 16,
+                            align: 3,
+                            memory_index: 0,
+                        }));
 
-                                // Init RC = 1
-                                body.instruction(&Instruction::LocalGet(struct_ptr_local));
-                                body.instruction(&Instruction::I32WrapI64);
-                                body.instruction(&Instruction::I64Const(1));
-                                body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
-                                    offset: 24,
-                                    align: 3,
-                                    memory_index: 0,
-                                }));
+                        // Init RC = 1
+                        body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                        body.instruction(&Instruction::I32WrapI64);
+                        body.instruction(&Instruction::I64Const(1));
+                        body.instruction(&Instruction::I64Store(wasm_encoder::MemArg {
+                            offset: 24,
+                            align: 3,
+                            memory_index: 0,
+                        }));
 
-                                // Return struct pointer
-                                body.instruction(&Instruction::LocalGet(struct_ptr_local));
-                                self.scratch_depth -= 1;
-                            } else {
-                                body.instruction(&Instruction::I64Const(*key));
-                                let sr_idx = *self.function_map.get("storage_read").unwrap();
-                                body.instruction(&Instruction::Call(sr_idx));
-                            }
-                            return Ok(());
-                        }
+                        // Return struct pointer
+                        body.instruction(&Instruction::LocalGet(struct_ptr_local));
+                        self.scratch_depth -= 1;
+                    } else {
+                        body.instruction(&Instruction::I64Const(*key));
+                        let sr_idx = *self.function_map.get("storage_read").unwrap();
+                        body.instruction(&Instruction::Call(sr_idx));
+                    }
+                    return Ok(());
+                }
 
                 // If expr is an identifier pointing to a struct local
                 let _obj_ty = self.infer_type(expr, locals, local_types);
@@ -2097,16 +2081,17 @@ impl CodeGenerator {
                 if let ExpressionKind::FieldAccess { expr: base, field } = &expr.kind
                     && let ExpressionKind::Identifier(base_name) = &base.kind
                     && base_name == "self"
-                    && let Some(field_key) = self.storage_keys.get(field) {
-                                body.instruction(&Instruction::I64Const(*field_key));
-                                self.compile_expr(index, body, locals, local_types)?;
-                                let h64_idx = *self.function_map.get("hash_i64").unwrap();
-                                body.instruction(&Instruction::Call(h64_idx));
+                    && let Some(field_key) = self.storage_keys.get(field)
+                {
+                    body.instruction(&Instruction::I64Const(*field_key));
+                    self.compile_expr(index, body, locals, local_types)?;
+                    let h64_idx = *self.function_map.get("hash_i64").unwrap();
+                    body.instruction(&Instruction::Call(h64_idx));
 
-                                let sr_idx = *self.function_map.get("storage_read").unwrap();
-                                body.instruction(&Instruction::Call(sr_idx));
-                                return Ok(());
-                            }
+                    let sr_idx = *self.function_map.get("storage_read").unwrap();
+                    body.instruction(&Instruction::Call(sr_idx));
+                    return Ok(());
+                }
             }
             ExpressionKind::StructInit {
                 name,
