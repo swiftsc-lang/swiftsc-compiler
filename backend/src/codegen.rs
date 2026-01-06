@@ -744,10 +744,9 @@ impl CodeGenerator {
                     }
 
                     // Fallback for msg properties if called
-                    if let ExpressionKind::Identifier(obj_id) = &obj.kind {
-                        if obj_id == "msg" && field == "sender" {
-                            return Type::Path("u64".into());
-                        }
+                    if let ExpressionKind::Identifier(obj_id) = &obj.kind
+                        && obj_id == "msg" && field == "sender" {
+                        return Type::Path("u64".into());
                     }
                 }
                 Type::Path("u64".into()) // Default for calls
@@ -1282,9 +1281,9 @@ impl CodeGenerator {
                             }
                         }
                         ExpressionKind::FieldAccess { expr: obj, field } => {
-                            if let ExpressionKind::Identifier(obj_name) = &obj.kind {
-                                if obj_name == "self" {
-                                    if let Some(key) = self.storage_keys.get(field).copied() {
+                            if let ExpressionKind::Identifier(obj_name) = &obj.kind
+                                && obj_name == "self"
+                                && let Some(key) = self.storage_keys.get(field).copied() {
                                         // Check if String
                                         let is_string = self.storage_types.get(field)
                                             == Some(&Type::Path("String".into()));
@@ -1363,16 +1362,14 @@ impl CodeGenerator {
                                                 *self.function_map.get("storage_write").unwrap();
                                             body.instruction(&Instruction::Call(sw_idx));
                                         }
-                                    }
                                 }
-                            }
                         }
                         ExpressionKind::Index { expr: obj, index } => {
                             // Map entry assignment: self.balances[to] = value
-                            if let ExpressionKind::FieldAccess { expr: base, field } = &obj.kind {
-                                if let ExpressionKind::Identifier(base_name) = &base.kind {
-                                    if base_name == "self" {
-                                        if let Some(field_key) = self.storage_keys.get(field) {
+                            if let ExpressionKind::FieldAccess { expr: base, field } = &obj.kind
+                                && let ExpressionKind::Identifier(base_name) = &base.kind
+                                && base_name == "self"
+                                && let Some(field_key) = self.storage_keys.get(field) {
                                             // Key = hash(field_key, index_value)
                                             body.instruction(&Instruction::I64Const(*field_key));
                                             self.compile_expr(index, body, locals, local_types)?;
@@ -1384,10 +1381,7 @@ impl CodeGenerator {
                                             let sw_idx =
                                                 *self.function_map.get("storage_write").unwrap();
                                             body.instruction(&Instruction::Call(sw_idx));
-                                        }
-                                    }
                                 }
-                            }
                         }
                         _ => {}
                     }
@@ -1757,11 +1751,12 @@ impl CodeGenerator {
                     }
                     ExpressionKind::FieldAccess { expr, field } => {
                         // Method call: obj.method()
-                        if let ExpressionKind::Identifier(obj_name) = &expr.kind {
-                            if obj_name == "msg" {
+                        if let ExpressionKind::Identifier(obj_name) = &expr.kind
+                            && obj_name == "msg" {
                             match field.as_str() {
                                 "sender" => {
-                                    let func_idx = *self.function_map.get("get_caller").unwrap();
+                                    let func_idx =
+                                        *self.function_map.get("get_caller").unwrap();
                                     body.instruction(&Instruction::Call(func_idx));
                                     return Ok(());
                                 }
@@ -1776,7 +1771,6 @@ impl CodeGenerator {
                                     return Ok(());
                                 }
                                 _ => {}
-                            }
                             }
                         }
 
@@ -1999,9 +1993,9 @@ impl CodeGenerator {
                 }
 
                 // If expr is self.field, it's a storage read
-                if let ExpressionKind::Identifier(id) = &expr.kind {
-                    if id == "self" {
-                        if let Some(key) = self.storage_keys.get(field) {
+                if let ExpressionKind::Identifier(id) = &expr.kind
+                    && id == "self"
+                    && let Some(key) = self.storage_keys.get(field) {
                             self.emit_gas_increment(body, 50); // Storage read cost
                             // Check if String
                             let is_string =
@@ -2071,8 +2065,6 @@ impl CodeGenerator {
                             }
                             return Ok(());
                         }
-                    }
-                }
 
                 // If expr is an identifier pointing to a struct local
                 let _obj_ty = self.infer_type(expr, locals, local_types);
@@ -2102,10 +2094,10 @@ impl CodeGenerator {
             }
             ExpressionKind::Index { expr, index } => {
                 // Storage Map access: self.balances[sender]
-                if let ExpressionKind::FieldAccess { expr: base, field } = &expr.kind {
-                    if let ExpressionKind::Identifier(base_name) = &base.kind {
-                        if base_name == "self" {
-                            if let Some(field_key) = self.storage_keys.get(field) {
+                if let ExpressionKind::FieldAccess { expr: base, field } = &expr.kind
+                    && let ExpressionKind::Identifier(base_name) = &base.kind
+                    && base_name == "self"
+                    && let Some(field_key) = self.storage_keys.get(field) {
                                 body.instruction(&Instruction::I64Const(*field_key));
                                 self.compile_expr(index, body, locals, local_types)?;
                                 let h64_idx = *self.function_map.get("hash_i64").unwrap();
@@ -2115,9 +2107,6 @@ impl CodeGenerator {
                                 body.instruction(&Instruction::Call(sr_idx));
                                 return Ok(());
                             }
-                        }
-                    }
-                }
             }
             ExpressionKind::StructInit {
                 name,

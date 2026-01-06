@@ -43,7 +43,7 @@ where
         let start = range.start;
         let mut line = 1;
         let mut col = 1;
-        
+
         for (i, c) in self.input.char_indices() {
             if i >= start {
                 break;
@@ -55,7 +55,7 @@ where
                 col += 1;
             }
         }
-        
+
         crate::ast::Span::new(line, col)
     }
 
@@ -140,7 +140,12 @@ where
                 self.advance(); // eat 'resource'
                 let name = match self.advance() {
                     Some(Token::Identifier(s)) => s,
-                    Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+                    Some(t) => {
+                        return Err(ParseError::UnexpectedToken(
+                            t,
+                            self.get_span(self.last_span.clone()),
+                        ))
+                    }
                     None => return Err(ParseError::UnexpectedEOF),
                 };
 
@@ -203,7 +208,12 @@ where
 
         let name = match self.advance() {
             Some(Token::Identifier(s)) => s,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
 
@@ -290,7 +300,12 @@ where
         loop {
             match self.advance() {
                 Some(Token::Identifier(s)) => path.push(s),
-                Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+                Some(t) => {
+                    return Err(ParseError::UnexpectedToken(
+                        t,
+                        self.get_span(self.last_span.clone()),
+                    ))
+                }
                 None => return Err(ParseError::UnexpectedEOF),
             }
 
@@ -324,7 +339,12 @@ where
             self.advance(); // consume 'as'
             let alias = match self.advance() {
                 Some(Token::Identifier(s)) => Some(s),
-                Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+                Some(t) => {
+                    return Err(ParseError::UnexpectedToken(
+                        t,
+                        self.get_span(self.last_span.clone()),
+                    ))
+                }
                 None => return Err(ParseError::UnexpectedEOF),
             };
             (None, alias)
@@ -340,7 +360,12 @@ where
         self.advance(); // eat 'struct'
         let name = match self.advance() {
             Some(Token::Identifier(s)) => s,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
 
@@ -363,7 +388,12 @@ where
         while self.peek() != Some(&Token::RBrace) && self.peek().is_some() {
             let field_name = match self.advance() {
                 Some(Token::Identifier(s)) => s,
-                Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+                Some(t) => {
+                    return Err(ParseError::UnexpectedToken(
+                        t,
+                        self.get_span(self.last_span.clone()),
+                    ))
+                }
                 None => return Err(ParseError::UnexpectedEOF),
             };
             self.expect(Token::Colon)?;
@@ -390,7 +420,12 @@ where
         self.advance(); // eat 'enum'
         let name = match self.advance() {
             Some(Token::Identifier(s)) => s,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
 
@@ -399,7 +434,12 @@ where
         while self.peek() != Some(&Token::RBrace) && self.peek().is_some() {
             let variant_name = match self.advance() {
                 Some(Token::Identifier(s)) => s,
-                Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+                Some(t) => {
+                    return Err(ParseError::UnexpectedToken(
+                        t,
+                        self.get_span(self.last_span.clone()),
+                    ))
+                }
                 None => return Err(ParseError::UnexpectedEOF),
             };
             variants.push(variant_name);
@@ -419,7 +459,12 @@ where
         self.expect(Token::Trait)?;
         let name = match self.advance() {
             Some(Token::Identifier(s)) => s,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
         self.expect(Token::LBrace)?;
@@ -455,7 +500,12 @@ where
 
         let first_name = match self.advance() {
             Some(Token::Identifier(s)) => s,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
 
@@ -475,7 +525,12 @@ where
             self.advance(); // consume 'for'
             let target = match self.advance() {
                 Some(Token::Identifier(s)) => s,
-                Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+                Some(t) => {
+                    return Err(ParseError::UnexpectedToken(
+                        t,
+                        self.get_span(self.last_span.clone()),
+                    ))
+                }
                 None => return Err(ParseError::UnexpectedEOF),
             };
             if self.peek() == Some(&Token::Lt) {
@@ -520,7 +575,12 @@ where
 
         let name = match self.advance() {
             Some(Token::Identifier(s)) => s,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
 
@@ -553,7 +613,12 @@ where
             loop {
                 let p_name = match self.advance() {
                     Some(Token::Identifier(s)) => s,
-                    Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+                    Some(t) => {
+                        return Err(ParseError::UnexpectedToken(
+                            t,
+                            self.get_span(self.last_span.clone()),
+                        ))
+                    }
                     None => return Err(ParseError::UnexpectedEOF),
                 };
 
@@ -644,7 +709,10 @@ where
                     ))
                 }
             }
-            Some(t) => Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+            Some(t) => Err(ParseError::UnexpectedToken(
+                t,
+                self.get_span(self.last_span.clone()),
+            )),
             None => Err(ParseError::UnexpectedEOF),
         }
     }
@@ -660,7 +728,11 @@ where
     }
 
     pub fn parse_statement(&mut self) -> Result<Statement, ParseError> {
-        let start_pos = self.lexer.peek().map(|(_, s)| s.start).unwrap_or(self.last_span.start);
+        let start_pos = self
+            .lexer
+            .peek()
+            .map(|(_, s)| s.start)
+            .unwrap_or(self.last_span.start);
 
         match self.peek() {
             Some(Token::Let) => {
@@ -690,7 +762,12 @@ where
                 } else {
                     match self.advance() {
                         Some(Token::Identifier(s)) => s,
-                        Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+                        Some(t) => {
+                            return Err(ParseError::UnexpectedToken(
+                                t,
+                                self.get_span(self.last_span.clone()),
+                            ))
+                        }
                         None => return Err(ParseError::UnexpectedEOF),
                     }
                 };
@@ -768,13 +845,21 @@ where
                 self.advance(); // eat 'while'
                 let condition = self.parse_expression(0, false)?;
                 let body = self.parse_block()?;
-                Ok(self.stmt(StatementKind::While { condition, body }, start_pos..self.last_span.end))
+                Ok(self.stmt(
+                    StatementKind::While { condition, body },
+                    start_pos..self.last_span.end,
+                ))
             }
             Some(Token::For) => {
                 self.advance(); // eat 'for'
                 let var_name = match self.advance() {
                     Some(Token::Identifier(s)) => s,
-                    Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+                    Some(t) => {
+                        return Err(ParseError::UnexpectedToken(
+                            t,
+                            self.get_span(self.last_span.clone()),
+                        ))
+                    }
                     None => return Err(ParseError::UnexpectedEOF),
                 };
 
@@ -882,7 +967,10 @@ where
                                 },
                                 start_pos..self.last_span.end,
                             );
-                            Ok(self.stmt(StatementKind::Expr(assign_expr), start_pos..self.last_span.end))
+                            Ok(self.stmt(
+                                StatementKind::Expr(assign_expr),
+                                start_pos..self.last_span.end,
+                            ))
                         }
                         _ => {
                             if self.peek() == Some(&Token::Semicolon) {
@@ -929,10 +1017,8 @@ where
                         enum_name: s,
                         variant_name: variant,
                     }
-                } else if s == "_" {
-                    Pattern::Wildcard
                 } else {
-                    Pattern::Wildcard // Default to wildcard for MVP robustness
+                    Pattern::Wildcard
                 }
             } else {
                 Pattern::Wildcard
@@ -963,7 +1049,12 @@ where
             loop {
                 let name = match self.advance() {
                     Some(Token::Identifier(s)) => s,
-                    Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+                    Some(t) => {
+                        return Err(ParseError::UnexpectedToken(
+                            t,
+                            self.get_span(self.last_span.clone()),
+                        ))
+                    }
                     None => return Err(ParseError::UnexpectedEOF),
                 };
 
@@ -1006,12 +1097,28 @@ where
         min_bp: u8,
         allow_struct_init: bool,
     ) -> Result<Expression, ParseError> {
-        let start_pos = self.lexer.peek().map(|(_, s)| s.start).unwrap_or(self.last_span.start);
+        let start_pos = self
+            .lexer
+            .peek()
+            .map(|(_, s)| s.start)
+            .unwrap_or(self.last_span.start);
         let mut lhs = match self.advance() {
-            Some(Token::Integer(i)) => self.expr(ExpressionKind::Literal(Literal::Int(i)), self.last_span.clone()),
-            Some(Token::StringLit(s)) => self.expr(ExpressionKind::Literal(Literal::String(s)), self.last_span.clone()),
-            Some(Token::True) => self.expr(ExpressionKind::Literal(Literal::Bool(true)), self.last_span.clone()),
-            Some(Token::False) => self.expr(ExpressionKind::Literal(Literal::Bool(false)), self.last_span.clone()),
+            Some(Token::Integer(i)) => self.expr(
+                ExpressionKind::Literal(Literal::Int(i)),
+                self.last_span.clone(),
+            ),
+            Some(Token::StringLit(s)) => self.expr(
+                ExpressionKind::Literal(Literal::String(s)),
+                self.last_span.clone(),
+            ),
+            Some(Token::True) => self.expr(
+                ExpressionKind::Literal(Literal::Bool(true)),
+                self.last_span.clone(),
+            ),
+            Some(Token::False) => self.expr(
+                ExpressionKind::Literal(Literal::Bool(false)),
+                self.last_span.clone(),
+            ),
             Some(Token::Identifier(s)) => {
                 let start_span = self.last_span.clone();
                 let mut expr = self.expr(ExpressionKind::Identifier(s.clone()), start_span.clone());
@@ -1062,7 +1169,10 @@ where
                         let field_name = match self.advance() {
                             Some(Token::Identifier(fn_name)) => fn_name,
                             Some(t) => {
-                                return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone())))
+                                return Err(ParseError::UnexpectedToken(
+                                    t,
+                                    self.get_span(self.last_span.clone()),
+                                ))
                             }
                             None => return Err(ParseError::UnexpectedEOF),
                         };
@@ -1112,11 +1222,17 @@ where
                     expr
                 }
             }
-            Some(Token::SelfKw) => self.expr(ExpressionKind::Identifier("self".to_string()), self.last_span.clone()),
+            Some(Token::SelfKw) => self.expr(
+                ExpressionKind::Identifier("self".to_string()),
+                self.last_span.clone(),
+            ),
             Some(Token::LParen) => {
                 if self.peek() == Some(&Token::RParen) {
                     self.advance();
-                    self.expr(ExpressionKind::Literal(Literal::Unit), start_pos..self.last_span.end)
+                    self.expr(
+                        ExpressionKind::Literal(Literal::Unit),
+                        start_pos..self.last_span.end,
+                    )
                 } else {
                     let expr = self.parse_expression(0, true)?; // Inside parens, struct init allowed
                     self.expect(Token::RParen)?;
@@ -1125,7 +1241,12 @@ where
             }
             Some(Token::Match) => self.parse_match_expression()?,
             Some(Token::Pipe) => self.parse_closure()?,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.get_span(self.last_span.clone()))),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
 
@@ -1271,7 +1392,12 @@ where
     fn binding_power(&self, op: &BinaryOp) -> (u8, u8) {
         match op {
             BinaryOp::Assign => (1, 2),
-            BinaryOp::Eq | BinaryOp::Ne | BinaryOp::Lt | BinaryOp::Gt | BinaryOp::Le | BinaryOp::Ge => (3, 4),
+            BinaryOp::Eq
+            | BinaryOp::Ne
+            | BinaryOp::Lt
+            | BinaryOp::Gt
+            | BinaryOp::Le
+            | BinaryOp::Ge => (3, 4),
             BinaryOp::Add | BinaryOp::Sub => (5, 6),
             BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => (7, 8),
         }

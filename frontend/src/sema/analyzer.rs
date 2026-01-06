@@ -592,7 +592,7 @@ impl Analyzer {
                         }
                     }
                 }
-                
+
                 // Generic check for functions/methods
                 let func_ty = self.check_expr(func)?;
                 if let Type::Path(f_name) = &func_ty {
@@ -617,7 +617,7 @@ impl Analyzer {
                         }
                         Ok((*val_ty).clone())
                     }
-                    _ => Ok(Type::Path("unknown_index".into()))
+                    _ => Ok(Type::Path("unknown_index".into())),
                 }
             }
             ExpressionKind::StructInit {
@@ -673,7 +673,8 @@ impl Analyzer {
                                 Ok(ok_ty)
                             } else {
                                 Err(SemanticError::Custom(
-                                    "? operator can only be used in functions returning Result".into(),
+                                    "? operator can only be used in functions returning Result"
+                                        .into(),
                                 ))
                             }
                         } else {
@@ -763,8 +764,7 @@ impl Analyzer {
                 let val_ty = self.check_expr(value)?;
 
                 if let Type::Path(ref name) = val_ty {
-                    if !self.enums.contains_key(name) {
-                    }
+                    if !self.enums.contains_key(name) {}
                 }
 
                 let mut ret_ty = Type::Path("unknown".into());
