@@ -25,7 +25,7 @@ If applicable, add screenshots to help explain your problem.
 
 **Environment (please complete the following information):**
  - OS: [e.g. Ubuntu 22.04]
- - SwiftSC Version: [e.g. 1.0.3-beta]
+ - SwiftSC Version: [e.g. 1.0.3]
  - Rust Version: [e.g. 1.70]
 
 **Additional context**

@@ -658,12 +658,12 @@ impl CodeGenerator {
         locals: &std::collections::HashMap<String, u32>,
         local_types: &std::collections::HashMap<u32, Type>,
     ) -> Type {
-        match expr {
-            Expression::Literal(Literal::Int(_)) => Type::Path("u64".into()),
-            Expression::Literal(Literal::Bool(_)) => Type::Path("bool".into()),
-            Expression::Literal(Literal::String(_)) => Type::Path("String".into()),
-            Expression::Literal(Literal::Unit) => Type::Path("Unit".into()),
-            Expression::Identifier(id) => {
+        match &expr.kind {
+            ExpressionKind::Literal(Literal::Int(_)) => Type::Path("u64".into()),
+            ExpressionKind::Literal(Literal::Bool(_)) => Type::Path("bool".into()),
+            ExpressionKind::Literal(Literal::String(_)) => Type::Path("String".into()),
+            ExpressionKind::Literal(Literal::Unit) => Type::Path("Unit".into()),
+            ExpressionKind::Identifier(id) => {
                 if id == "self" {
                     return Type::Path(self.current_contract.clone().unwrap_or("Contract".into()));
                 }
@@ -681,7 +681,7 @@ impl CodeGenerator {
                     Type::Path("u64".into())
                 }
             }
-            Expression::StructInit {
+            ExpressionKind::StructInit {
                 name, type_args, ..
             } => {
                 if type_args.is_empty() {
@@ -690,8 +690,8 @@ impl CodeGenerator {
                     Type::Generic(name.clone(), type_args.clone())
                 }
             }
-            Expression::EnumVariant { enum_name, .. } => Type::Path(enum_name.clone()),
-            Expression::GenericInst { target, type_args } => {
+            ExpressionKind::EnumVariant { enum_name, .. } => Type::Path(enum_name.clone()),
+            ExpressionKind::GenericInst { target, type_args } => {
                 let base = self.infer_type(target, locals, local_types);
                 if let Type::Path(name) = base {
                     Type::Generic(name, type_args.clone())
@@ -699,12 +699,12 @@ impl CodeGenerator {
                     base
                 }
             }
-            Expression::Call {
+            ExpressionKind::Call {
                 func,
                 args,
                 type_args,
             } => {
-                if let Expression::Identifier(s) = &**func {
+                if let ExpressionKind::Identifier(s) = &func.kind {
                     if s == "ptr_read" {
                         if let Some(ty) = type_args.first() {
                             return ty.clone();
@@ -735,8 +735,8 @@ impl CodeGenerator {
                         return ret_ty.clone().unwrap_or(Type::Path("Unit".into()));
                     }
                 }
-                if let Expression::FieldAccess { expr, field } = &**func {
-                    let obj_ty = self.infer_type(expr, locals, local_types);
+                if let ExpressionKind::FieldAccess { expr: obj, field } = &func.kind {
+                    let obj_ty = self.infer_type(obj, locals, local_types);
                     let type_name = mangle_type(&obj_ty);
                     let naked_mangled = format!("{}__impl__{}", type_name, field);
                     if let Some(ret_ty) = self.function_returns.get(&naked_mangled) {
@@ -744,8 +744,8 @@ impl CodeGenerator {
                     }
 
                     // Fallback for msg properties if called
-                    if let Expression::Identifier(obj) = &**expr
-                        && obj == "msg"
+                    if let ExpressionKind::Identifier(obj_id) = &obj.kind
+                        && obj_id == "msg"
                         && field == "sender"
                     {
                         return Type::Path("u64".into());
@@ -753,8 +753,8 @@ impl CodeGenerator {
                 }
                 Type::Path("u64".into()) // Default for calls
             }
-            Expression::FieldAccess { expr, field } => {
-                let obj_ty = self.infer_type(expr, locals, local_types);
+            ExpressionKind::FieldAccess { expr: obj, field } => {
+                let obj_ty = self.infer_type(obj, locals, local_types);
                 match obj_ty {
                     Type::Path(name) if name == "Contract" => self
                         .storage_types
@@ -764,7 +764,7 @@ impl CodeGenerator {
                     _ => Type::Path("u64".into()),
                 }
             }
-            Expression::Binary { op, .. } => match op {
+            ExpressionKind::Binary { op, .. } => match op {
                 BinaryOp::Assign => Type::Path("Unit".into()),
                 BinaryOp::Eq
                 | BinaryOp::Ne
@@ -774,8 +774,8 @@ impl CodeGenerator {
                 | BinaryOp::Ge => Type::Path("bool".into()),
                 _ => Type::Path("u64".into()),
             },
-            Expression::Index { .. } => Type::Path("u64".into()),
-            Expression::Try(inner) => {
+            ExpressionKind::Index { .. } => Type::Path("u64".into()),
+            ExpressionKind::Try(inner) => {
                 let inner_ty = self.infer_type(inner, locals, local_types);
                 match inner_ty {
                     Type::Generic(name, args) if name == "Result" && args.len() == 2 => {
@@ -809,8 +809,8 @@ impl CodeGenerator {
         locals: &std::collections::HashMap<String, u32>,
         local_types: &std::collections::HashMap<u32, Type>,
     ) -> Option<(u32, &FieldLayout)> {
-        let name = match expr {
-            Expression::Identifier(s) => s,
+        let name = match &expr.kind {
+            ExpressionKind::Identifier(s) => s,
             _ => return None,
         };
         let idx = *locals.get(name)?;
@@ -827,27 +827,32 @@ impl CodeGenerator {
     fn count_locals(block: &Block) -> u32 {
         let mut count = 0;
         for stmt in &block.stmts {
-            if let Statement::Let { destruct_names, .. } = stmt {
-                if destruct_names.is_empty() {
-                    count += 1;
-                } else {
-                    count += destruct_names.len() as u32;
+            match &stmt.kind {
+                StatementKind::Let { destruct_names, .. } => {
+                    if destruct_names.is_empty() {
+                        count += 1;
+                    } else {
+                        count += destruct_names.len() as u32;
+                    }
                 }
-            } else if let Statement::For { body, .. } = stmt {
-                count += 1; // loop variable
-                count += Self::count_locals(body);
-            } else if let Statement::If {
-                then_branch,
-                else_branch,
-                ..
-            } = stmt
-            {
-                count += Self::count_locals(then_branch);
-                if let Some(eb) = else_branch {
-                    count += Self::count_locals(eb);
+                StatementKind::For { body, .. } => {
+                    count += 1; // loop variable
+                    count += Self::count_locals(body);
                 }
-            } else if let Statement::While { body, .. } = stmt {
-                count += Self::count_locals(body);
+                StatementKind::If {
+                    then_branch,
+                    else_branch,
+                    ..
+                } => {
+                    count += Self::count_locals(then_branch);
+                    if let Some(eb) = else_branch {
+                        count += Self::count_locals(eb);
+                    }
+                }
+                StatementKind::While { body, .. } => {
+                    count += Self::count_locals(body);
+                }
+                _ => {}
             }
         }
         count
@@ -880,8 +885,8 @@ impl CodeGenerator {
         is_last: bool,
         expected_return: bool,
     ) -> Result<()> {
-        match stmt {
-            Statement::Let {
+        match &stmt.kind {
+            StatementKind::Let {
                 name,
                 destruct_names,
                 ty,
@@ -938,7 +943,7 @@ impl CodeGenerator {
                     }
                 }
             }
-            Statement::Expr(expr) => {
+            StatementKind::Expr(expr) => {
                 self.compile_expr(expr, body, locals, local_types)?;
                 let ty = self.infer_type(expr, locals, local_types);
 
@@ -947,16 +952,16 @@ impl CodeGenerator {
                     body.instruction(&Instruction::Drop);
                 }
             }
-            Statement::Return(Some(expr)) => {
+            StatementKind::Return(Some(expr)) => {
                 self.compile_expr(expr, body, locals, local_types)?;
                 self.emit_cleanup_for_all_scopes(body, local_types);
                 body.instruction(&Instruction::Return);
             }
-            Statement::Return(None) => {
+            StatementKind::Return(None) => {
                 self.emit_cleanup_for_all_scopes(body, local_types);
                 body.instruction(&Instruction::Return);
             }
-            Statement::If {
+            StatementKind::If {
                 condition,
                 then_branch,
                 else_branch,
@@ -995,7 +1000,7 @@ impl CodeGenerator {
                 }
                 body.instruction(&Instruction::End);
             }
-            Statement::While {
+            StatementKind::While {
                 condition,
                 body: loop_body,
             } => {
@@ -1027,7 +1032,7 @@ impl CodeGenerator {
                 body.instruction(&Instruction::End);
                 self.control_stack.pop();
             }
-            Statement::For {
+            StatementKind::For {
                 var_name,
                 start,
                 end,
@@ -1072,7 +1077,7 @@ impl CodeGenerator {
                 body.instruction(&Instruction::End);
                 self.control_stack.pop();
             }
-            Statement::Break => {
+            StatementKind::Break => {
                 // Find nearest Block wrapping a Loop
                 let mut relative_depth = 0;
                 for frame in self.control_stack.iter().rev() {
@@ -1088,7 +1093,7 @@ impl CodeGenerator {
                     }
                 }
             }
-            Statement::Continue => {
+            StatementKind::Continue => {
                 // Find nearest Loop
                 let mut relative_depth = 0;
                 for frame in self.control_stack.iter().rev() {
@@ -1115,8 +1120,8 @@ impl CodeGenerator {
         locals: &mut std::collections::HashMap<String, u32>,
         local_types: &mut std::collections::HashMap<u32, Type>,
     ) -> Result<()> {
-        match expr {
-            Expression::Literal(lit) => match lit {
+        match &expr.kind {
+            ExpressionKind::Literal(lit) => match lit {
                 Literal::Int(v) => {
                     body.instruction(&Instruction::I64Const(*v as i64));
                 }
@@ -1187,16 +1192,16 @@ impl CodeGenerator {
                     // Unit is empty stack
                 }
             },
-            Expression::Identifier(name) => {
+            ExpressionKind::Identifier(name) => {
                 if let Some(idx) = locals.get(name) {
                     body.instruction(&Instruction::LocalGet(*idx));
                 }
             }
-            Expression::Binary { left, op, right } => {
+            ExpressionKind::Binary { left, op, right } => {
                 if *op == BinaryOp::Assign {
                     // Handle assignment
-                    match &**left {
-                        Expression::Identifier(name) => {
+                    match &left.kind {
+                        ExpressionKind::Identifier(name) => {
                             if let Some(idx) = locals.get(name).cloned() {
                                 self.compile_expr(right, body, locals, local_types)?;
 
@@ -1277,8 +1282,8 @@ impl CodeGenerator {
                                 }
                             }
                         }
-                        Expression::FieldAccess { expr: obj, field } => {
-                            if let Expression::Identifier(obj_name) = &**obj
+                        ExpressionKind::FieldAccess { expr: obj, field } => {
+                            if let ExpressionKind::Identifier(obj_name) = &obj.kind
                                 && obj_name == "self"
                                 && let Some(key) = self.storage_keys.get(field).copied()
                             {
@@ -1343,10 +1348,10 @@ impl CodeGenerator {
                                 }
                             }
                         }
-                        Expression::Index { expr: obj, index } => {
+                        ExpressionKind::Index { expr: obj, index } => {
                             // Map entry assignment: self.balances[to] = value
-                            if let Expression::FieldAccess { expr: base, field } = &**obj
-                                && let Expression::Identifier(base_name) = &**base
+                            if let ExpressionKind::FieldAccess { expr: base, field } = &obj.kind
+                                && let ExpressionKind::Identifier(base_name) = &base.kind
                                 && base_name == "self"
                                 && let Some(field_key) = self.storage_keys.get(field)
                             {
@@ -1556,15 +1561,15 @@ impl CodeGenerator {
                     }
                 }
             }
-            Expression::Call {
+            ExpressionKind::Call {
                 func,
                 args,
                 type_args,
             } => {
                 let mut final_args = args.clone();
                 let mut is_indirect = false;
-                let func_name = match &**func {
-                    Expression::Identifier(s) => {
+                let func_name = match &func.kind {
+                    ExpressionKind::Identifier(s) => {
                         if s == "ptr_write" {
                             let ptr_arg = &args[0];
                             let val_arg = &args[1];
@@ -1712,7 +1717,13 @@ impl CodeGenerator {
                                 && locals.contains_key("self")
                             {
                                 is_indirect = false;
-                                final_args.insert(0, Expression::Identifier("self".to_string()));
+                                final_args.insert(
+                                    0,
+                                    Expression {
+                                        kind: ExpressionKind::Identifier("self".to_string()),
+                                        span: args[0].span, // Hack: use first arg's span
+                                    },
+                                );
                                 mangled
                             } else {
                                 s.clone()
@@ -1721,9 +1732,9 @@ impl CodeGenerator {
                             s.clone()
                         }
                     }
-                    Expression::FieldAccess { expr, field } => {
+                    ExpressionKind::FieldAccess { expr, field } => {
                         // Method call: obj.method()
-                        if let Expression::Identifier(obj_name) = &**expr
+                        if let ExpressionKind::Identifier(obj_name) = &expr.kind
                             && obj_name == "msg"
                         {
                             match field.as_str() {
@@ -1845,10 +1856,10 @@ impl CodeGenerator {
                     if let Some(first_arg) = args.first() {
                         // We need to determine the type of the argument
                         // For simple cases, we can infer from the expression
-                        let inferred_ty = match first_arg {
-                            Expression::Literal(Literal::Int(_)) => Type::Path("u64".into()),
-                            Expression::Literal(Literal::Bool(_)) => Type::Path("bool".into()),
-                            Expression::Identifier(id) => {
+                        let inferred_ty = match &first_arg.kind {
+                            ExpressionKind::Literal(Literal::Int(_)) => Type::Path("u64".into()),
+                            ExpressionKind::Literal(Literal::Bool(_)) => Type::Path("bool".into()),
+                            ExpressionKind::Identifier(id) => {
                                 // Look up in locals
                                 if let Some(&idx) = locals.get(id) {
                                     local_types
@@ -1859,8 +1870,8 @@ impl CodeGenerator {
                                     Type::Path("u64".into())
                                 }
                             }
-                            Expression::StructInit { name, .. } => Type::Path(name.clone()),
-                            Expression::EnumVariant { enum_name, .. } => {
+                            ExpressionKind::StructInit { name, .. } => Type::Path(name.clone()),
+                            ExpressionKind::EnumVariant { enum_name, .. } => {
                                 Type::Path(enum_name.clone())
                             }
                             _ => Type::Path("u64".into()),
@@ -1945,15 +1956,17 @@ impl CodeGenerator {
                     body.instruction(&Instruction::Call(*func_idx));
                 }
             }
-            Expression::FieldAccess { expr, field } => {
+            ExpressionKind::FieldAccess { expr, field } => {
                 // If msg property
-                let maybe_msg_func = match &**expr {
-                    Expression::Identifier(obj_name) if obj_name == "msg" => match field.as_str() {
-                        "sender" => self.function_map.get("get_caller").copied(),
-                        "value" => self.function_map.get("get_value").copied(),
-                        "data" => self.function_map.get("get_data").copied(),
-                        _ => None,
-                    },
+                let maybe_msg_func = match &expr.kind {
+                    ExpressionKind::Identifier(obj_name) if obj_name == "msg" => {
+                        match field.as_str() {
+                            "sender" => self.function_map.get("get_caller").copied(),
+                            "value" => self.function_map.get("get_value").copied(),
+                            "data" => self.function_map.get("get_data").copied(),
+                            _ => None,
+                        }
+                    }
                     _ => None,
                 };
 
@@ -1963,7 +1976,7 @@ impl CodeGenerator {
                 }
 
                 // If expr is self.field, it's a storage read
-                if let Expression::Identifier(id) = &**expr
+                if let ExpressionKind::Identifier(id) = &expr.kind
                     && id == "self"
                     && let Some(key) = self.storage_keys.get(field)
                 {
@@ -2063,10 +2076,10 @@ impl CodeGenerator {
                     memory_index: 0,
                 }));
             }
-            Expression::Index { expr, index } => {
+            ExpressionKind::Index { expr, index } => {
                 // Storage Map access: self.balances[sender]
-                if let Expression::FieldAccess { expr: base, field } = &**expr
-                    && let Expression::Identifier(base_name) = &**base
+                if let ExpressionKind::FieldAccess { expr: base, field } = &expr.kind
+                    && let ExpressionKind::Identifier(base_name) = &base.kind
                     && base_name == "self"
                     && let Some(field_key) = self.storage_keys.get(field)
                 {
@@ -2080,7 +2093,11 @@ impl CodeGenerator {
                     return Ok(());
                 }
             }
-            Expression::StructInit { name, fields, .. } => {
+            ExpressionKind::StructInit {
+                name,
+                fields,
+                type_args: _,
+            } => {
                 // Calculate struct size and allocate memory
                 let struct_size = if let Some(layout) = self.struct_layouts.get(name) {
                     // Size is last field's offset + 8 bytes (assuming all fields are i64)
@@ -2125,7 +2142,7 @@ impl CodeGenerator {
                 body.instruction(&Instruction::LocalGet(temp_idx)); // Result pointer
                 self.scratch_depth -= 1;
             }
-            Expression::EnumVariant {
+            ExpressionKind::EnumVariant {
                 enum_name,
                 variant_name,
             } => {
@@ -2137,10 +2154,10 @@ impl CodeGenerator {
                     body.instruction(&Instruction::I64Const(*val as i64));
                 }
             }
-            Expression::GenericInst { target, .. } => {
+            ExpressionKind::GenericInst { target, .. } => {
                 self.compile_expr(target, body, locals, local_types)?;
             }
-            Expression::Try(inner) => {
+            ExpressionKind::Try(inner) => {
                 // inner evaluates to Result pointer (i64)
                 self.compile_expr(inner, body, locals, local_types)?;
 
@@ -2182,26 +2199,16 @@ impl CodeGenerator {
                 body.instruction(&Instruction::End);
                 self.scratch_depth -= 1;
             }
-            Expression::Match { value, arms } => {
+            ExpressionKind::Match { value, arms } => {
                 // Compile value
                 self.compile_expr(value, body, locals, local_types)?;
 
-                // Store value in temporary local?
-                // Creating a new local on fly is tricky in WASM one-pass without pre-alloc.
-                // Easier to use stack, but we need to duplicate it for comparisons.
-                // Or: assume we have a scratch local or allocate one at start of function?
-                // For NOW: Just chain if-else blocks checking the value on stack.
-                // But `match` value is computed once.
-
+                // Store value in temporary local
                 let temp_idx = (locals.len() + 14) as u32; // Use buffer local
 
                 body.instruction(&Instruction::LocalSet(temp_idx));
-                // We don't insert into 'locals' map because it's temporary and we don't want to shadow user vars
-                // locals.insert(".match_temp".into(), temp_idx);
 
                 // Generate if/else chain
-                // if temp == pattern1 { body1 } else { if temp == pattern2 { body2 } ... }
-
                 let mut closing_ends = 0;
 
                 for arm in arms {
@@ -2220,11 +2227,7 @@ impl CodeGenerator {
                             }
                             body.instruction(&Instruction::I64Eq);
                             // If
-                            body.instruction(&Instruction::If(wasm_encoder::BlockType::Empty)); // Result type? 
-                            // Match is expression, so it should return a value.
-                            // But our If blocks are Empty type for now (void).
-                            // We need to handle result type. If match expects a result, we need block result type I64.
-                            // For MVP, assume Match used as statement or returns i64.
+                            body.instruction(&Instruction::If(wasm_encoder::BlockType::Empty));
 
                             self.compile_expr(&arm.body, body, locals, local_types)?;
                             body.instruction(&Instruction::Else);
@@ -2243,7 +2246,7 @@ impl CodeGenerator {
                     body.instruction(&Instruction::End);
                 }
             }
-            Expression::Closure {
+            ExpressionKind::Closure {
                 params,
                 body: closure_body,
             } => {
@@ -2377,53 +2380,57 @@ impl CodeGenerator {
         stmt: &Statement,
         mapping: &std::collections::HashMap<String, Type>,
     ) -> Statement {
-        match stmt {
-            Statement::Let {
+        let kind = match &stmt.kind {
+            StatementKind::Let {
                 name,
                 destruct_names,
                 ty,
                 init,
                 is_mut,
-            } => Statement::Let {
+            } => StatementKind::Let {
                 name: name.clone(),
                 destruct_names: destruct_names.clone(),
                 ty: ty.as_ref().map(|t| Self::substitute_type(t, mapping)),
                 init: Self::substitute_expression(init, mapping),
                 is_mut: *is_mut,
             },
-            Statement::Expr(e) => Statement::Expr(Self::substitute_expression(e, mapping)),
-            Statement::Return(Some(e)) => {
-                Statement::Return(Some(Self::substitute_expression(e, mapping)))
+            StatementKind::Expr(e) => StatementKind::Expr(Self::substitute_expression(e, mapping)),
+            StatementKind::Return(Some(e)) => {
+                StatementKind::Return(Some(Self::substitute_expression(e, mapping)))
             }
-            Statement::Return(None) => Statement::Return(None),
-            Statement::If {
+            StatementKind::Return(None) => StatementKind::Return(None),
+            StatementKind::If {
                 condition,
                 then_branch,
                 else_branch,
-            } => Statement::If {
+            } => StatementKind::If {
                 condition: Self::substitute_expression(condition, mapping),
                 then_branch: Self::substitute_block(then_branch, mapping),
                 else_branch: else_branch
                     .as_ref()
                     .map(|b| Self::substitute_block(b, mapping)),
             },
-            Statement::While { condition, body } => Statement::While {
+            StatementKind::While { condition, body } => StatementKind::While {
                 condition: Self::substitute_expression(condition, mapping),
                 body: Self::substitute_block(body, mapping),
             },
-            Statement::For {
+            StatementKind::For {
                 var_name,
                 start,
                 end,
                 body,
-            } => Statement::For {
+            } => StatementKind::For {
                 var_name: var_name.clone(),
                 start: Self::substitute_expression(start, mapping),
                 end: Self::substitute_expression(end, mapping),
                 body: Self::substitute_block(body, mapping),
             },
-            Statement::Break => Statement::Break,
-            Statement::Continue => Statement::Continue,
+            StatementKind::Break => StatementKind::Break,
+            StatementKind::Continue => StatementKind::Continue,
+        };
+        Statement {
+            kind,
+            span: stmt.span,
         }
     }
 
@@ -2431,20 +2438,20 @@ impl CodeGenerator {
         expr: &Expression,
         mapping: &std::collections::HashMap<String, Type>,
     ) -> Expression {
-        match expr {
-            Expression::Identifier(_) | Expression::Literal(_) | Expression::EnumVariant { .. } => {
-                expr.clone()
-            }
-            Expression::Binary { left, op, right } => Expression::Binary {
+        let kind = match &expr.kind {
+            ExpressionKind::Identifier(_)
+            | ExpressionKind::Literal(_)
+            | ExpressionKind::EnumVariant { .. } => expr.kind.clone(),
+            ExpressionKind::Binary { left, op, right } => ExpressionKind::Binary {
                 left: Box::new(Self::substitute_expression(left, mapping)),
                 op: op.clone(),
                 right: Box::new(Self::substitute_expression(right, mapping)),
             },
-            Expression::Call {
+            ExpressionKind::Call {
                 func,
                 args,
                 type_args,
-            } => Expression::Call {
+            } => ExpressionKind::Call {
                 func: Box::new(Self::substitute_expression(func, mapping)),
                 args: args
                     .iter()
@@ -2455,11 +2462,11 @@ impl CodeGenerator {
                     .map(|t| Self::substitute_type(t, mapping))
                     .collect(),
             },
-            Expression::StructInit {
+            ExpressionKind::StructInit {
                 name,
                 fields,
                 type_args,
-            } => Expression::StructInit {
+            } => ExpressionKind::StructInit {
                 name: name.clone(),
                 fields: fields
                     .iter()
@@ -2470,22 +2477,22 @@ impl CodeGenerator {
                     .map(|t| Self::substitute_type(t, mapping))
                     .collect(),
             },
-            Expression::GenericInst { target, type_args } => Expression::GenericInst {
+            ExpressionKind::GenericInst { target, type_args } => ExpressionKind::GenericInst {
                 target: Box::new(Self::substitute_expression(target, mapping)),
                 type_args: type_args
                     .iter()
                     .map(|t| Self::substitute_type(t, mapping))
                     .collect(),
             },
-            Expression::FieldAccess { expr, field } => Expression::FieldAccess {
+            ExpressionKind::FieldAccess { expr, field } => ExpressionKind::FieldAccess {
                 expr: Box::new(Self::substitute_expression(expr, mapping)),
                 field: field.clone(),
             },
-            Expression::Index { expr, index } => Expression::Index {
+            ExpressionKind::Index { expr, index } => ExpressionKind::Index {
                 expr: Box::new(Self::substitute_expression(expr, mapping)),
                 index: Box::new(Self::substitute_expression(index, mapping)),
             },
-            Expression::Match { value, arms } => Expression::Match {
+            ExpressionKind::Match { value, arms } => ExpressionKind::Match {
                 value: Box::new(Self::substitute_expression(value, mapping)),
                 arms: arms
                     .iter()
@@ -2495,7 +2502,7 @@ impl CodeGenerator {
                     })
                     .collect(),
             },
-            Expression::Closure { params, body } => Expression::Closure {
+            ExpressionKind::Closure { params, body } => ExpressionKind::Closure {
                 params: params
                     .iter()
                     .map(|p| Param {
@@ -2505,9 +2512,13 @@ impl CodeGenerator {
                     .collect(),
                 body: Box::new(Self::substitute_block(body, mapping)),
             },
-            Expression::Try(inner) => {
-                Expression::Try(Box::new(Self::substitute_expression(inner, mapping)))
+            ExpressionKind::Try(inner) => {
+                ExpressionKind::Try(Box::new(Self::substitute_expression(inner, mapping)))
             }
+        };
+        Expression {
+            kind,
+            span: expr.span,
         }
     }
 }

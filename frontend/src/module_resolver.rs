@@ -81,7 +81,7 @@ impl ModuleResolver {
 
         // Parse using the tokenize helper
         let tokens = tokenize(&source);
-        let mut parser = Parser::new(tokens.into_iter());
+        let mut parser = Parser::new(tokens.into_iter(), source.clone());
         let program = parser
             .parse_program()
             .map_err(|e| ModuleError::ParseError(file_path.clone(), e))?;

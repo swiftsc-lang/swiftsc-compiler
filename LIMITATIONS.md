@@ -1,10 +1,10 @@
-# SwiftSC-Lang V1.0.3-beta - Known Limitations
+# SwiftSC-Lang V1.0.3 - Known Limitations
 
 ## ⚠️ Beta Release Notice
 
-SwiftSC-Lang V1.0.3-beta is a **Security Hardening** release. While it introduces critical features like Gas Metering, Reentrancy Protection, and a richer Standard Library, it is still intended for **educational and testing purposes only**. Do not use for production smart contracts or mainnet deployments without a comprehensive audit.
+SwiftSC-Lang V1.0.3 is a **Security Hardening** release. While it introduces critical features like Gas Metering, Reentrancy Protection, and a richer Standard Library, it is still intended for **educational and testing purposes only**. Do not use for production smart contracts or mainnet deployments without a comprehensive audit.
 
-## ✅ What's New in V1.0.3-beta
+## ✅ What's New in V1.0.3
 
 - **Gas Instrumentation**: Automatic injection of gas metering instructions into WASM output to prevent infinite loops and resource exhaustion (Issue #24).
 - **Security Analysis**: Static detection of Reentrancy vulnerabilities, Integer Overflows, and Uninitialized Storage variables (Issues #2, #3, #4).

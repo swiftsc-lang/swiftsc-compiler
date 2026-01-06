@@ -7,31 +7,69 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum ParseError {
     #[error("Unexpected token: {0:?} at {1:?}")]
-    UnexpectedToken(Token, std::ops::Range<usize>),
+    UnexpectedToken(Token, crate::ast::Span),
     #[error("Unexpected EOF")]
     UnexpectedEOF,
     #[error("Custom error: {0}")]
     Custom(String),
     #[error("Expected {0} but found {1:?} at {2:?}")]
-    Expected(String, Token, Span),
+    Expected(String, Token, crate::ast::Span),
 }
 
-pub struct Parser<I>
+pub struct Parser<'a, I>
 where
     I: Iterator<Item = (Token, Span)>,
 {
     lexer: Peekable<I>,
     last_span: Span,
+    input: String,
+    _marker: std::marker::PhantomData<&'a ()>,
 }
 
-impl<I> Parser<I>
+impl<'a, I> Parser<'a, I>
 where
     I: Iterator<Item = (Token, Span)>,
 {
-    pub fn new(lexer: I) -> Self {
+    pub fn new(lexer: I, input: String) -> Self {
         Self {
             lexer: lexer.peekable(),
             last_span: 0..0,
+            input,
+            _marker: std::marker::PhantomData,
+        }
+    }
+
+    fn get_span(&self, range: Span) -> crate::ast::Span {
+        let start = range.start;
+        let mut line = 1;
+        let mut col = 1;
+
+        for (i, c) in self.input.char_indices() {
+            if i >= start {
+                break;
+            }
+            if c == '\n' {
+                line += 1;
+                col = 1;
+            } else {
+                col += 1;
+            }
+        }
+
+        crate::ast::Span::new(line, col)
+    }
+
+    fn expr(&self, kind: ExpressionKind, span: Span) -> Expression {
+        Expression {
+            kind,
+            span: self.get_span(span),
+        }
+    }
+
+    fn stmt(&self, kind: StatementKind, span: Span) -> Statement {
+        Statement {
+            kind,
+            span: self.get_span(span),
         }
     }
 
@@ -58,14 +96,10 @@ where
                 .peek()
                 .map(|(_, s)| s.clone())
                 .unwrap_or(self.last_span.clone());
-            eprintln!(
-                "DEBUG: Expected {:?} but found {:?} at {:?}",
-                expected, found_token, span
-            );
             return Err(ParseError::Expected(
                 format!("{:?}", expected),
                 found_token,
-                span,
+                self.get_span(span),
             ));
         }
 
@@ -106,7 +140,12 @@ where
                 self.advance(); // eat 'resource'
                 let name = match self.advance() {
                     Some(Token::Identifier(s)) => s,
-                    Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+                    Some(t) => {
+                        return Err(ParseError::UnexpectedToken(
+                            t,
+                            self.get_span(self.last_span.clone()),
+                        ))
+                    }
                     None => return Err(ParseError::UnexpectedEOF),
                 };
 
@@ -116,7 +155,10 @@ where
                     let field_name = match self.advance() {
                         Some(Token::Identifier(s)) => s,
                         Some(t) => {
-                            return Err(ParseError::UnexpectedToken(t, self.last_span.clone()))
+                            return Err(ParseError::UnexpectedToken(
+                                t,
+                                self.get_span(self.last_span.clone()),
+                            ))
                         }
                         None => return Err(ParseError::UnexpectedEOF),
                     };
@@ -155,7 +197,7 @@ where
             }
             Some(t) => Err(ParseError::UnexpectedToken(
                 t.clone(),
-                self.last_span.clone(),
+                self.get_span(self.last_span.clone()),
             )),
             None => Err(ParseError::UnexpectedEOF),
         }
@@ -166,7 +208,12 @@ where
 
         let name = match self.advance() {
             Some(Token::Identifier(s)) => s,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
 
@@ -253,7 +300,12 @@ where
         loop {
             match self.advance() {
                 Some(Token::Identifier(s)) => path.push(s),
-                Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+                Some(t) => {
+                    return Err(ParseError::UnexpectedToken(
+                        t,
+                        self.get_span(self.last_span.clone()),
+                    ))
+                }
                 None => return Err(ParseError::UnexpectedEOF),
             }
 
@@ -287,7 +339,12 @@ where
             self.advance(); // consume 'as'
             let alias = match self.advance() {
                 Some(Token::Identifier(s)) => Some(s),
-                Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+                Some(t) => {
+                    return Err(ParseError::UnexpectedToken(
+                        t,
+                        self.get_span(self.last_span.clone()),
+                    ))
+                }
                 None => return Err(ParseError::UnexpectedEOF),
             };
             (None, alias)
@@ -303,7 +360,12 @@ where
         self.advance(); // eat 'struct'
         let name = match self.advance() {
             Some(Token::Identifier(s)) => s,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
 
@@ -326,7 +388,12 @@ where
         while self.peek() != Some(&Token::RBrace) && self.peek().is_some() {
             let field_name = match self.advance() {
                 Some(Token::Identifier(s)) => s,
-                Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+                Some(t) => {
+                    return Err(ParseError::UnexpectedToken(
+                        t,
+                        self.get_span(self.last_span.clone()),
+                    ))
+                }
                 None => return Err(ParseError::UnexpectedEOF),
             };
             self.expect(Token::Colon)?;
@@ -353,7 +420,12 @@ where
         self.advance(); // eat 'enum'
         let name = match self.advance() {
             Some(Token::Identifier(s)) => s,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
 
@@ -362,7 +434,12 @@ where
         while self.peek() != Some(&Token::RBrace) && self.peek().is_some() {
             let variant_name = match self.advance() {
                 Some(Token::Identifier(s)) => s,
-                Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+                Some(t) => {
+                    return Err(ParseError::UnexpectedToken(
+                        t,
+                        self.get_span(self.last_span.clone()),
+                    ))
+                }
                 None => return Err(ParseError::UnexpectedEOF),
             };
             variants.push(variant_name);
@@ -382,7 +459,12 @@ where
         self.expect(Token::Trait)?;
         let name = match self.advance() {
             Some(Token::Identifier(s)) => s,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
         self.expect(Token::LBrace)?;
@@ -418,7 +500,12 @@ where
 
         let first_name = match self.advance() {
             Some(Token::Identifier(s)) => s,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
 
@@ -438,7 +525,12 @@ where
             self.advance(); // consume 'for'
             let target = match self.advance() {
                 Some(Token::Identifier(s)) => s,
-                Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+                Some(t) => {
+                    return Err(ParseError::UnexpectedToken(
+                        t,
+                        self.get_span(self.last_span.clone()),
+                    ))
+                }
                 None => return Err(ParseError::UnexpectedEOF),
             };
             if self.peek() == Some(&Token::Lt) {
@@ -483,7 +575,12 @@ where
 
         let name = match self.advance() {
             Some(Token::Identifier(s)) => s,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
 
@@ -497,7 +594,7 @@ where
                     _ => {
                         return Err(ParseError::UnexpectedToken(
                             self.peek().cloned().unwrap_or(Token::Error),
-                            self.last_span.clone(),
+                            self.get_span(self.last_span.clone()),
                         ))
                     }
                 };
@@ -516,7 +613,12 @@ where
             loop {
                 let p_name = match self.advance() {
                     Some(Token::Identifier(s)) => s,
-                    Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+                    Some(t) => {
+                        return Err(ParseError::UnexpectedToken(
+                            t,
+                            self.get_span(self.last_span.clone()),
+                        ))
+                    }
                     None => return Err(ParseError::UnexpectedEOF),
                 };
 
@@ -603,11 +705,14 @@ where
                 } else {
                     Err(ParseError::UnexpectedToken(
                         Token::LParen,
-                        self.last_span.clone(),
+                        self.get_span(self.last_span.clone()),
                     ))
                 }
             }
-            Some(t) => Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+            Some(t) => Err(ParseError::UnexpectedToken(
+                t,
+                self.get_span(self.last_span.clone()),
+            )),
             None => Err(ParseError::UnexpectedEOF),
         }
     }
@@ -623,6 +728,12 @@ where
     }
 
     pub fn parse_statement(&mut self) -> Result<Statement, ParseError> {
+        let start_pos = self
+            .lexer
+            .peek()
+            .map(|(_, s)| s.start)
+            .unwrap_or(self.last_span.start);
+
         match self.peek() {
             Some(Token::Let) => {
                 self.advance(); // eat let
@@ -632,53 +743,59 @@ where
                 } else {
                     false
                 };
-                let name = match self.advance() {
-                    Some(Token::Identifier(s)) => s,
-                    _ => return Err(ParseError::UnexpectedEOF), // Simplified
-                };
 
+                // Check for destructuring pattern: let { a, b } = ...
                 let mut destruct_names = Vec::new();
-                // Destructuring pattern if present (e.g. let Token { amount } = ...)
-                if self.peek() == Some(&Token::LBrace) {
+                let name = if self.peek() == Some(&Token::LBrace) {
                     self.advance();
                     while self.peek() != Some(&Token::RBrace) && self.peek().is_some() {
-                        if let Some(Token::Identifier(s)) = self.peek() {
-                            destruct_names.push(s.clone());
+                        if let Some(Token::Identifier(s)) = self.advance() {
+                            destruct_names.push(s);
                         }
-                        self.advance();
+                        if self.peek() == Some(&Token::Comma) {
+                            self.advance();
+                        }
                     }
                     self.expect(Token::RBrace)?;
-                }
-
-                // Type annotation?
-                let ty = if self.peek() == Some(&Token::Colon) {
-                    self.advance();
-                    Some(match self.advance() {
-                        Some(Token::Identifier(s)) => Type::Path(s),
-                        Some(Token::U64) => Type::Path("u64".into()),
-                        Some(Token::Address) => Type::Path("Address".into()),
-                        Some(Token::Bool) => Type::Path("bool".into()),
-                        Some(Token::StringType) => Type::Path("String".into()),
+                    // For destructuring, we might need a dummy name or handle it differently in the AST
+                    "_destruct".to_string()
+                } else {
+                    match self.advance() {
+                        Some(Token::Identifier(s)) => s,
                         Some(t) => {
-                            return Err(ParseError::UnexpectedToken(t, self.last_span.clone()))
+                            return Err(ParseError::UnexpectedToken(
+                                t,
+                                self.get_span(self.last_span.clone()),
+                            ))
                         }
                         None => return Err(ParseError::UnexpectedEOF),
-                    })
+                    }
+                };
+
+                let ty = if self.peek() == Some(&Token::Colon) {
+                    self.advance();
+                    Some(self.parse_type()?)
                 } else {
                     None
                 };
 
                 self.expect(Token::Eq)?;
                 let init = self.parse_expression(0, true)?;
-                self.expect(Token::Semicolon)?;
 
-                Ok(Statement::Let {
-                    name,
-                    destruct_names,
-                    ty,
-                    init,
-                    is_mut,
-                })
+                if self.peek() == Some(&Token::Semicolon) {
+                    self.advance();
+                }
+
+                Ok(self.stmt(
+                    StatementKind::Let {
+                        name,
+                        destruct_names,
+                        ty,
+                        init,
+                        is_mut,
+                    },
+                    start_pos..self.last_span.end,
+                ))
             }
             Some(Token::Return) => {
                 self.advance();
@@ -688,7 +805,7 @@ where
                     None
                 };
                 self.expect(Token::Semicolon)?;
-                Ok(Statement::Return(expr))
+                Ok(self.stmt(StatementKind::Return(expr), start_pos..self.last_span.end))
             }
             Some(Token::If) => {
                 self.advance(); // eat 'if'
@@ -698,7 +815,6 @@ where
                 let mut else_branch = None;
                 if self.peek() == Some(&Token::Else) {
                     self.advance(); // eat 'else'
-                                    // Support 'else if' or just 'else { ... }'
                     if self.peek() == Some(&Token::If) {
                         else_branch = Some(Block {
                             stmts: vec![self.parse_statement()?],
@@ -708,68 +824,85 @@ where
                     }
                 }
 
-                Ok(Statement::If {
-                    condition,
-                    then_branch,
-                    else_branch,
-                })
+                Ok(self.stmt(
+                    StatementKind::If {
+                        condition,
+                        then_branch,
+                        else_branch,
+                    },
+                    start_pos..self.last_span.end,
+                ))
             }
             Some(Token::Emit) => {
                 self.advance(); // eat 'emit'
-                let _expr = self.parse_expression(0, true)?;
+                let expr = self.parse_expression(0, true)?;
                 if self.peek() == Some(&Token::Semicolon) {
                     self.advance();
                 }
-                Ok(Statement::Expr(Expression::Literal(Literal::Bool(true))))
+                Ok(self.stmt(StatementKind::Expr(expr), start_pos..self.last_span.end))
             }
             Some(Token::While) => {
                 self.advance(); // eat 'while'
                 let condition = self.parse_expression(0, false)?;
                 let body = self.parse_block()?;
-                Ok(Statement::While { condition, body })
+                Ok(self.stmt(
+                    StatementKind::While { condition, body },
+                    start_pos..self.last_span.end,
+                ))
             }
             Some(Token::For) => {
                 self.advance(); // eat 'for'
                 let var_name = match self.advance() {
                     Some(Token::Identifier(s)) => s,
-                    Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+                    Some(t) => {
+                        return Err(ParseError::UnexpectedToken(
+                            t,
+                            self.get_span(self.last_span.clone()),
+                        ))
+                    }
                     None => return Err(ParseError::UnexpectedEOF),
                 };
 
                 self.expect(Token::In)?;
 
                 let start = self.parse_expression(0, false)?;
-                self.expect(Token::Range)?; // For now only inclusive range ..
+                self.expect(Token::Range)?;
                 let end = self.parse_expression(0, false)?;
 
                 let body = self.parse_block()?;
-                Ok(Statement::For {
-                    var_name,
-                    start,
-                    end,
-                    body,
-                })
+                Ok(self.stmt(
+                    StatementKind::For {
+                        var_name,
+                        start,
+                        end,
+                        body,
+                    },
+                    start_pos..self.last_span.end,
+                ))
             }
-            Some(Token::Match) => Ok(Statement::Expr(self.parse_match_expression()?)),
+            Some(Token::Match) => {
+                let expr = self.parse_match_expression()?;
+                if self.peek() == Some(&Token::Semicolon) {
+                    self.advance();
+                }
+                Ok(self.stmt(StatementKind::Expr(expr), start_pos..self.last_span.end))
+            }
             Some(Token::Break) => {
                 self.advance();
                 if self.peek() == Some(&Token::Semicolon) {
                     self.advance();
                 }
-                Ok(Statement::Break)
+                Ok(self.stmt(StatementKind::Break, start_pos..self.last_span.end))
             }
             Some(Token::Continue) => {
                 self.advance();
                 if self.peek() == Some(&Token::Semicolon) {
                     self.advance();
                 }
-                Ok(Statement::Continue)
+                Ok(self.stmt(StatementKind::Continue, start_pos..self.last_span.end))
             }
             _ => {
-                // Try to parse as assignment or expression
                 let expr = self.parse_expression(0, true)?;
-
-                // Check for assignment operators
                 let op_token = self.peek().cloned();
                 if let Some(t) = op_token {
                     match t {
@@ -778,66 +911,86 @@ where
                         | Token::MinusEq
                         | Token::StarEq
                         | Token::SlashEq => {
-                            self.advance(); // eat assignment op
+                            self.advance();
                             let mut rhs = self.parse_expression(0, true)?;
-
-                            // Desugar: a += b  =>  a = a + b
                             match t {
                                 Token::PlusEq => {
-                                    rhs = Expression::Binary {
-                                        left: Box::new(expr.clone()),
-                                        op: BinaryOp::Add,
-                                        right: Box::new(rhs),
-                                    };
+                                    rhs = self.expr(
+                                        ExpressionKind::Binary {
+                                            left: Box::new(expr.clone()),
+                                            op: BinaryOp::Add,
+                                            right: Box::new(rhs),
+                                        },
+                                        start_pos..self.last_span.end,
+                                    );
                                 }
                                 Token::MinusEq => {
-                                    rhs = Expression::Binary {
-                                        left: Box::new(expr.clone()),
-                                        op: BinaryOp::Sub,
-                                        right: Box::new(rhs),
-                                    };
+                                    rhs = self.expr(
+                                        ExpressionKind::Binary {
+                                            left: Box::new(expr.clone()),
+                                            op: BinaryOp::Sub,
+                                            right: Box::new(rhs),
+                                        },
+                                        start_pos..self.last_span.end,
+                                    );
                                 }
                                 Token::StarEq => {
-                                    rhs = Expression::Binary {
-                                        left: Box::new(expr.clone()),
-                                        op: BinaryOp::Mul,
-                                        right: Box::new(rhs),
-                                    };
+                                    rhs = self.expr(
+                                        ExpressionKind::Binary {
+                                            left: Box::new(expr.clone()),
+                                            op: BinaryOp::Mul,
+                                            right: Box::new(rhs),
+                                        },
+                                        start_pos..self.last_span.end,
+                                    );
                                 }
                                 Token::SlashEq => {
-                                    rhs = Expression::Binary {
-                                        left: Box::new(expr.clone()),
-                                        op: BinaryOp::Div,
-                                        right: Box::new(rhs),
-                                    };
+                                    rhs = self.expr(
+                                        ExpressionKind::Binary {
+                                            left: Box::new(expr.clone()),
+                                            op: BinaryOp::Div,
+                                            right: Box::new(rhs),
+                                        },
+                                        start_pos..self.last_span.end,
+                                    );
                                 }
                                 _ => {}
                             }
-
                             if self.peek() == Some(&Token::Semicolon) {
                                 self.advance();
                             }
-                            Ok(Statement::Expr(Expression::Binary {
-                                left: Box::new(expr),
-                                op: BinaryOp::Assign,
-                                right: Box::new(rhs),
-                            }))
+                            let assign_expr = self.expr(
+                                ExpressionKind::Binary {
+                                    left: Box::new(expr),
+                                    op: BinaryOp::Assign,
+                                    right: Box::new(rhs),
+                                },
+                                start_pos..self.last_span.end,
+                            );
+                            Ok(self.stmt(
+                                StatementKind::Expr(assign_expr),
+                                start_pos..self.last_span.end,
+                            ))
                         }
                         _ => {
                             if self.peek() == Some(&Token::Semicolon) {
                                 self.advance();
                             }
-                            Ok(Statement::Expr(expr))
+                            Ok(self.stmt(StatementKind::Expr(expr), start_pos..self.last_span.end))
                         }
                     }
                 } else {
-                    Ok(Statement::Expr(expr))
+                    if self.peek() == Some(&Token::Semicolon) {
+                        self.advance();
+                    }
+                    Ok(self.stmt(StatementKind::Expr(expr), start_pos..self.last_span.end))
                 }
             }
         }
     }
 
     fn parse_match_expression(&mut self) -> Result<Expression, ParseError> {
+        let start_pos = self.last_span.start; // 'match' already advanced
         let value = self.parse_expression(0, false)?;
         self.expect(Token::LBrace)?;
         let mut arms = Vec::new();
@@ -856,7 +1009,7 @@ where
                         _ => {
                             return Err(ParseError::UnexpectedToken(
                                 self.peek().cloned().unwrap_or(Token::Error),
-                                self.last_span.clone(),
+                                self.get_span(self.last_span.clone()),
                             ))
                         }
                     };
@@ -864,17 +1017,11 @@ where
                         enum_name: s,
                         variant_name: variant,
                     }
-                } else if s == "_" {
-                    Pattern::Wildcard
                 } else {
-                    return Err(ParseError::Custom(
-                        "Only Enum::Variant or _ patterns supported for now".into(),
-                    ));
+                    Pattern::Wildcard
                 }
             } else {
-                return Err(ParseError::Custom(
-                    "Invalid pattern, expected enum variant or _".into(),
-                ));
+                Pattern::Wildcard
             };
 
             self.expect(Token::FatArrow)?;
@@ -886,20 +1033,28 @@ where
             }
         }
         self.expect(Token::RBrace)?;
-        Ok(Expression::Match {
-            value: Box::new(value),
-            arms,
-        })
+        Ok(self.expr(
+            ExpressionKind::Match {
+                value: Box::new(value),
+                arms,
+            },
+            start_pos..self.last_span.end,
+        ))
     }
 
     fn parse_closure(&mut self) -> Result<Expression, ParseError> {
-        // We already ate one '|' (via parse_expression)
+        let start_pos = self.last_span.start; // '|' already advanced
         let mut params = Vec::new();
         if self.peek() != Some(&Token::Pipe) {
             loop {
                 let name = match self.advance() {
                     Some(Token::Identifier(s)) => s,
-                    Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+                    Some(t) => {
+                        return Err(ParseError::UnexpectedToken(
+                            t,
+                            self.get_span(self.last_span.clone()),
+                        ))
+                    }
                     None => return Err(ParseError::UnexpectedEOF),
                 };
 
@@ -927,10 +1082,13 @@ where
         self.expect(Token::Pipe)?;
 
         let body = self.parse_block()?;
-        Ok(Expression::Closure {
-            params,
-            body: Box::new(body),
-        })
+        Ok(self.expr(
+            ExpressionKind::Closure {
+                params,
+                body: Box::new(body),
+            },
+            start_pos..self.last_span.end,
+        ))
     }
 
     // Pratt Parser
@@ -939,13 +1097,31 @@ where
         min_bp: u8,
         allow_struct_init: bool,
     ) -> Result<Expression, ParseError> {
+        let start_pos = self
+            .lexer
+            .peek()
+            .map(|(_, s)| s.start)
+            .unwrap_or(self.last_span.start);
         let mut lhs = match self.advance() {
-            Some(Token::Integer(i)) => Expression::Literal(Literal::Int(i)),
-            Some(Token::StringLit(s)) => Expression::Literal(Literal::String(s)),
-            Some(Token::True) => Expression::Literal(Literal::Bool(true)),
-            Some(Token::False) => Expression::Literal(Literal::Bool(false)),
+            Some(Token::Integer(i)) => self.expr(
+                ExpressionKind::Literal(Literal::Int(i)),
+                self.last_span.clone(),
+            ),
+            Some(Token::StringLit(s)) => self.expr(
+                ExpressionKind::Literal(Literal::String(s)),
+                self.last_span.clone(),
+            ),
+            Some(Token::True) => self.expr(
+                ExpressionKind::Literal(Literal::Bool(true)),
+                self.last_span.clone(),
+            ),
+            Some(Token::False) => self.expr(
+                ExpressionKind::Literal(Literal::Bool(false)),
+                self.last_span.clone(),
+            ),
             Some(Token::Identifier(s)) => {
-                let mut expr = Expression::Identifier(s.clone());
+                let start_span = self.last_span.clone();
+                let mut expr = self.expr(ExpressionKind::Identifier(s.clone()), start_span.clone());
 
                 if self.peek() == Some(&Token::DoubleColon) {
                     self.advance(); // eat ::
@@ -959,24 +1135,30 @@ where
                             }
                         }
                         self.expect(Token::Gt)?;
-                        expr = Expression::GenericInst {
-                            target: Box::new(expr),
-                            type_args,
-                        };
+                        expr = self.expr(
+                            ExpressionKind::GenericInst {
+                                target: Box::new(expr),
+                                type_args,
+                            },
+                            start_span.start..self.last_span.end,
+                        );
                     } else {
                         let variant = match self.advance() {
                             Some(Token::Identifier(v)) => v,
                             t => {
                                 return Err(ParseError::UnexpectedToken(
                                     t.unwrap_or(Token::Error),
-                                    self.last_span.clone(),
+                                    self.get_span(self.last_span.clone()),
                                 ))
                             }
                         };
-                        expr = Expression::EnumVariant {
-                            enum_name: s,
-                            variant_name: variant,
-                        };
+                        expr = self.expr(
+                            ExpressionKind::EnumVariant {
+                                enum_name: s,
+                                variant_name: variant,
+                            },
+                            start_span.start..self.last_span.end,
+                        );
                     }
                 }
 
@@ -987,7 +1169,10 @@ where
                         let field_name = match self.advance() {
                             Some(Token::Identifier(fn_name)) => fn_name,
                             Some(t) => {
-                                return Err(ParseError::UnexpectedToken(t, self.last_span.clone()))
+                                return Err(ParseError::UnexpectedToken(
+                                    t,
+                                    self.get_span(self.last_span.clone()),
+                                ))
                             }
                             None => return Err(ParseError::UnexpectedEOF),
                         };
@@ -1000,30 +1185,36 @@ where
                     }
                     self.expect(Token::RBrace)?;
 
-                    match expr {
-                        Expression::GenericInst { target, type_args } => {
-                            if let Expression::Identifier(name) = *target {
-                                Expression::StructInit {
-                                    name,
-                                    type_args,
-                                    fields,
-                                }
+                    match expr.kind {
+                        ExpressionKind::GenericInst { target, type_args } => {
+                            if let ExpressionKind::Identifier(name) = target.kind {
+                                self.expr(
+                                    ExpressionKind::StructInit {
+                                        name,
+                                        type_args,
+                                        fields,
+                                    },
+                                    start_span.start..self.last_span.end,
+                                )
                             } else {
                                 return Err(ParseError::UnexpectedToken(
                                     Token::LBrace,
-                                    self.last_span.clone(),
+                                    self.get_span(self.last_span.clone()),
                                 ));
                             }
                         }
-                        Expression::Identifier(name) => Expression::StructInit {
-                            name,
-                            type_args: vec![],
-                            fields,
-                        },
+                        ExpressionKind::Identifier(name) => self.expr(
+                            ExpressionKind::StructInit {
+                                name,
+                                type_args: vec![],
+                                fields,
+                            },
+                            start_span.start..self.last_span.end,
+                        ),
                         _ => {
                             return Err(ParseError::UnexpectedToken(
                                 Token::LBrace,
-                                self.last_span.clone(),
+                                self.get_span(self.last_span.clone()),
                             ))
                         }
                     }
@@ -1031,11 +1222,17 @@ where
                     expr
                 }
             }
-            Some(Token::SelfKw) => Expression::Identifier("self".to_string()),
+            Some(Token::SelfKw) => self.expr(
+                ExpressionKind::Identifier("self".to_string()),
+                self.last_span.clone(),
+            ),
             Some(Token::LParen) => {
                 if self.peek() == Some(&Token::RParen) {
                     self.advance();
-                    Expression::Literal(Literal::Unit)
+                    self.expr(
+                        ExpressionKind::Literal(Literal::Unit),
+                        start_pos..self.last_span.end,
+                    )
                 } else {
                     let expr = self.parse_expression(0, true)?; // Inside parens, struct init allowed
                     self.expect(Token::RParen)?;
@@ -1044,7 +1241,12 @@ where
             }
             Some(Token::Match) => self.parse_match_expression()?,
             Some(Token::Pipe) => self.parse_closure()?,
-            Some(t) => return Err(ParseError::UnexpectedToken(t, self.last_span.clone())),
+            Some(t) => {
+                return Err(ParseError::UnexpectedToken(
+                    t,
+                    self.get_span(self.last_span.clone()),
+                ))
+            }
             None => return Err(ParseError::UnexpectedEOF),
         };
 
@@ -1057,25 +1259,34 @@ where
                         Some(Token::Identifier(s)) => s,
                         _ => return Err(ParseError::UnexpectedEOF),
                     };
-                    lhs = Expression::FieldAccess {
-                        expr: Box::new(lhs),
-                        field,
-                    };
+                    lhs = self.expr(
+                        ExpressionKind::FieldAccess {
+                            expr: Box::new(lhs),
+                            field,
+                        },
+                        start_pos..self.last_span.end,
+                    );
                     continue;
                 }
                 Some(Token::QuestionMark) => {
                     self.advance();
-                    lhs = Expression::Try(Box::new(lhs));
+                    lhs = self.expr(
+                        ExpressionKind::Try(Box::new(lhs)),
+                        start_pos..self.last_span.end,
+                    );
                     continue;
                 }
                 Some(Token::LBracket) => {
                     self.advance();
                     let index = self.parse_expression(0, true)?;
                     self.expect(Token::RBracket)?;
-                    lhs = Expression::Index {
-                        expr: Box::new(lhs),
-                        index: Box::new(index),
-                    };
+                    lhs = self.expr(
+                        ExpressionKind::Index {
+                            expr: Box::new(lhs),
+                            index: Box::new(index),
+                        },
+                        start_pos..self.last_span.end,
+                    );
                     continue;
                 }
                 Some(Token::DoubleColon) => {
@@ -1090,19 +1301,25 @@ where
                             }
                         }
                         self.expect(Token::Gt)?;
-                        lhs = Expression::GenericInst {
-                            target: Box::new(lhs),
-                            type_args,
-                        };
+                        lhs = self.expr(
+                            ExpressionKind::GenericInst {
+                                target: Box::new(lhs),
+                                type_args,
+                            },
+                            start_pos..self.last_span.end,
+                        );
                     } else {
                         let field = match self.advance() {
                             Some(Token::Identifier(s)) => s,
                             _ => return Err(ParseError::UnexpectedEOF),
                         };
-                        lhs = Expression::FieldAccess {
-                            expr: Box::new(lhs),
-                            field,
-                        };
+                        lhs = self.expr(
+                            ExpressionKind::FieldAccess {
+                                expr: Box::new(lhs),
+                                field,
+                            },
+                            start_pos..self.last_span.end,
+                        );
                     }
                     continue;
                 }
@@ -1121,61 +1338,68 @@ where
                         }
                     }
                     self.expect(Token::RParen)?;
-
-                    let (func, type_args) = match lhs {
-                        Expression::GenericInst { target, type_args } => (target, type_args),
-                        _ => (Box::new(lhs), vec![]),
-                    };
-
-                    lhs = Expression::Call {
-                        func,
-                        args,
-                        type_args,
-                    };
+                    lhs = self.expr(
+                        ExpressionKind::Call {
+                            func: Box::new(lhs),
+                            args,
+                            type_args: vec![],
+                        },
+                        start_pos..self.last_span.end,
+                    );
                     continue;
                 }
                 _ => {}
             }
 
-            // Handle binary operators
             let op = match self.peek() {
-                Some(Token::Plus) => BinaryOp::Add,
-                Some(Token::Minus) => BinaryOp::Sub,
-                Some(Token::Star) => BinaryOp::Mul,
-                Some(Token::Slash) => BinaryOp::Div,
-                Some(Token::EqEq) => BinaryOp::Eq,
-                Some(Token::NotEq) => BinaryOp::Ne,
-                Some(Token::Lt) => BinaryOp::Lt,
-                Some(Token::Gt) => BinaryOp::Gt,
-                Some(Token::LtEq) => BinaryOp::Le,
-                Some(Token::GtEq) => BinaryOp::Ge,
-                _ => break,
+                Some(t) => match t {
+                    Token::Plus => BinaryOp::Add,
+                    Token::Minus => BinaryOp::Sub,
+                    Token::Star => BinaryOp::Mul,
+                    Token::Slash => BinaryOp::Div,
+                    Token::Percent => BinaryOp::Mod,
+                    Token::EqEq => BinaryOp::Eq,
+                    Token::NotEq => BinaryOp::Ne,
+                    Token::Lt => BinaryOp::Lt,
+                    Token::Gt => BinaryOp::Gt,
+                    Token::LtEq => BinaryOp::Le,
+                    Token::GtEq => BinaryOp::Ge,
+                    _ => break,
+                },
+                None => break,
             };
 
-            let (l_bp, r_bp) = infix_binding_power(&op);
+            let (l_bp, r_bp) = self.binding_power(&op);
             if l_bp < min_bp {
                 break;
             }
 
-            self.advance(); // eat op
+            self.advance(); // consume op
             let rhs = self.parse_expression(r_bp, allow_struct_init)?;
-
-            lhs = Expression::Binary {
-                left: Box::new(lhs),
-                op,
-                right: Box::new(rhs),
-            };
+            lhs = self.expr(
+                ExpressionKind::Binary {
+                    left: Box::new(lhs),
+                    op,
+                    right: Box::new(rhs),
+                },
+                start_pos..self.last_span.end,
+            );
         }
 
         Ok(lhs)
     }
-}
 
-fn infix_binding_power(op: &BinaryOp) -> (u8, u8) {
-    match op {
-        BinaryOp::Eq | BinaryOp::Ne | BinaryOp::Lt | BinaryOp::Gt => (10, 20), // Comparison
-        BinaryOp::Add | BinaryOp::Sub => (30, 40),
-        BinaryOp::Mul | BinaryOp::Div => (50, 60),
-        _ => (0, 0),
+    fn binding_power(&self, op: &BinaryOp) -> (u8, u8) {
+        match op {
+            BinaryOp::Assign => (1, 2),
+            BinaryOp::Eq
+            | BinaryOp::Ne
+            | BinaryOp::Lt
+            | BinaryOp::Gt
+            | BinaryOp::Le
+            | BinaryOp::Ge => (3, 4),
+            BinaryOp::Add | BinaryOp::Sub => (5, 6),
+            BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => (7, 8),
+        }
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "swiftsc-backend"
-version = "1.0.3-beta"
+version = "1.0.3"
 edition = "2024"
 authors = ["SwiftSC-Lang Contributors"]
 description = "WASM backend and code generation for the SwiftSC-Lang compiler"
@@ -8,7 +8,7 @@ license = "MIT"
 repository = "https://github.com/swiftsc-lang/swiftsc-compiler"
 
 [dependencies]
-swiftsc-frontend = { version = "1.0.3-beta", path = "../frontend" }
+swiftsc-frontend = { version = "1.0.3", path = "../frontend" }
 wasm-encoder = "0.38" # Or latest stable
 anyhow = "1.0"
 thiserror = "1.0"

@@ -4,12 +4,18 @@ use swiftsc_frontend::sema::analyzer::Analyzer;
 #[test]
 fn test_analyze_valid() {
     // let x: u64 = 10;
-    let stmt = Statement::Let {
-        name: "x".to_string(),
-        destruct_names: vec![],
-        ty: Some(Type::Path("u64".to_string())),
-        init: Expression::Literal(Literal::Int(10)),
-        is_mut: false,
+    let stmt = Statement {
+        kind: StatementKind::Let {
+            name: "x".to_string(),
+            destruct_names: vec![],
+            ty: Some(Type::Path("u64".to_string())),
+            init: Expression {
+                kind: ExpressionKind::Literal(Literal::Int(10)),
+                span: Span::new(0, 0),
+            },
+            is_mut: false,
+        },
+        span: Span::new(0, 0),
     };
     let block = Block { stmts: vec![stmt] };
     let func = Function {
@@ -31,12 +37,18 @@ fn test_analyze_valid() {
 #[test]
 fn test_analyze_undefined() {
     // let x = y;
-    let stmt = Statement::Let {
-        name: "x".to_string(),
-        destruct_names: vec![],
-        ty: None,
-        init: Expression::Identifier("y".to_string()),
-        is_mut: false,
+    let stmt = Statement {
+        kind: StatementKind::Let {
+            name: "x".to_string(),
+            destruct_names: vec![],
+            ty: None,
+            init: Expression {
+                kind: ExpressionKind::Identifier("y".to_string()),
+                span: Span::new(0, 0),
+            },
+            is_mut: false,
+        },
+        span: Span::new(0, 0),
     };
     let block = Block { stmts: vec![stmt] };
     let func = Function {
@@ -60,12 +72,18 @@ fn test_analyze_undefined() {
 #[test]
 fn test_analyze_type_mismatch() {
     // let x: u64 = true;
-    let stmt = Statement::Let {
-        name: "x".to_string(),
-        destruct_names: vec![],
-        ty: Some(Type::Path("u64".to_string())),
-        init: Expression::Literal(Literal::Bool(true)),
-        is_mut: false,
+    let stmt = Statement {
+        kind: StatementKind::Let {
+            name: "x".to_string(),
+            destruct_names: vec![],
+            ty: Some(Type::Path("u64".to_string())),
+            init: Expression {
+                kind: ExpressionKind::Literal(Literal::Bool(true)),
+                span: Span::new(0, 0),
+            },
+            is_mut: false,
+        },
+        span: Span::new(0, 0),
     };
     let block = Block { stmts: vec![stmt] };
     let func = Function {
